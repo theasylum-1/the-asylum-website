@@ -26,7 +26,15 @@ function getSupabase() {
 }
 
 app.use(cors());
-app.use(express.static('public'));
+
+// Serve static files
+const path = require('path');
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Serve index.html for root route explicitly
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Raw body needed for Stripe webhooks
 app.use('/webhook', express.raw({ type: 'application/json' }));
@@ -279,6 +287,26 @@ app.post('/webhook', async (req, res) => {
 });
 
 // ─────────────────────────────────────────
+// PSA SUBMISSIONS — PUBLIC LOOKUP by email or ref
+// ─────────────────────────────────────────
+app.get('/api/psa/lookup', async (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.status(400).json({ error: 'Query required.' });
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('psa_submissions')
+      .select('*')
+      .ilike('submission_ref', '%' + q + '%')
+      .order('submitted_date', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  } catch (err) {
+    res.status(500).json({ error: 'Lookup failed.' });
+  }
+});
+
+// ─────────────────────────────────────────
 // PSA SUBMISSIONS — GET (requires auth)
 // ─────────────────────────────────────────
 app.get('/api/psa/:user_id', async (req, res) => {
@@ -339,6 +367,10 @@ app.post('/api/contact', async (req, res) => {
 // START SERVER
 // ─────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`The Asylum server running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`The Asylum server running on port ${PORT}`);
+  });
+}
+
+module.exports = app;
