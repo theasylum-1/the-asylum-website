@@ -113,8 +113,12 @@
     </div>
     <div class="form-grid four">
       <div class="form-group">
-        <label>Customer Name</label>
-        <input type="text" id="new-customer" placeholder="Customer name">
+        <label>Customer Email</label>
+        <div style="display:flex;gap:8px;">
+          <input type="email" id="new-customer-email" placeholder="customer@email.com" style="flex:1;">
+          <button class="btn-outline" onclick="lookupCustomer()" style="white-space:nowrap;padding:10px 14px;">Look Up</button>
+        </div>
+        <div id="customer-lookup-result" style="font-size:12px;margin-top:6px;color:var(--muted);"></div>
       </div>
       <div class="form-group">
         <label>Status</label>
@@ -131,7 +135,7 @@
       </div>
       <div class="form-group">
         <label>Notes</label>
-        <input type="text" id="new-notes" placeholder="Optional notes">
+        <input type="text" id="new-notes" placeholder="Optional notes"><input type="hidden" id="new-user-id" value="">
       </div>
     </div>
     <button class="btn-primary" onclick="addSubmission()">+ Add Submission</button>
@@ -285,6 +289,30 @@ async function quickUpdate(ref, status, grade) {
   }
 }
 
+async function lookupCustomer() {
+  var email = document.getElementById('new-customer-email').value.trim();
+  if (!email) { showToast('Enter a customer email first.', 'error'); return; }
+  var result = document.getElementById('customer-lookup-result');
+  result.textContent = 'Looking up...';
+  result.style.color = 'var(--muted)';
+  try {
+    const res = await fetch('/api/admin/user-by-email?email=' + encodeURIComponent(email) + '&admin_key=' + encodeURIComponent(ADMIN_KEY));
+    const data = await res.json();
+    if (!res.ok || !data.found) {
+      result.textContent = '⚠ No account found for this email. Submission will not be linked to an account.';
+      result.style.color = '#ff9800';
+      document.getElementById('new-user-id').value = '';
+    } else {
+      result.textContent = '✓ Found: ' + (data.name || data.email);
+      result.style.color = '#4caf50';
+      document.getElementById('new-user-id').value = data.user_id;
+    }
+  } catch (err) {
+    result.textContent = 'Lookup failed.';
+    result.style.color = 'var(--red-bright)';
+  }
+}
+
 async function addSubmission() {
   var cardName = document.getElementById('new-card-name').value.trim();
   var ref = document.getElementById('new-ref').value.trim();
@@ -299,7 +327,7 @@ async function addSubmission() {
     const res = await fetch('/api/psa/admin/add', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ submission_ref: ref, card_name: cardName, submitted_date: date || null, status, grade: grade || null, notes: notes || null, admin_key: ADMIN_KEY })
+      body: JSON.stringify({ submission_ref: ref, card_name: cardName, submitted_date: date || null, status, grade: grade || null, notes: notes || null, user_id: document.getElementById('new-user-id').value || null, admin_key: ADMIN_KEY })
     });
     const data = await res.json();
     if (!res.ok) { showToast(data.error || 'Failed to add.', 'error'); return; }
@@ -310,7 +338,9 @@ async function addSubmission() {
     document.getElementById('new-date').value = '';
     document.getElementById('new-grade').value = '';
     document.getElementById('new-notes').value = '';
-    document.getElementById('new-customer').value = '';
+    document.getElementById('new-customer-email').value = '';
+    document.getElementById('new-user-id').value = '';
+    document.getElementById('customer-lookup-result').textContent = '';
     loadSubmissions();
   } catch (err) {
     showToast('Failed to add submission.', 'error');

@@ -287,6 +287,30 @@ app.post('/webhook', async (req, res) => {
 });
 
 
+
+// ─────────────────────────────────────────
+// PSA ADMIN — LOOKUP USER BY EMAIL
+// ─────────────────────────────────────────
+app.get('/api/admin/user-by-email', async (req, res) => {
+  const { email, admin_key } = req.query;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  if (!email) return res.status(400).json({ error: 'Email required.' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const adminSupabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY
+    );
+    const { data, error } = await adminSupabase.auth.admin.listUsers();
+    if (error) return res.status(500).json({ error: error.message });
+    const user = data.users.find(function(u) { return u.email === email; });
+    if (!user) return res.json({ found: false });
+    res.json({ found: true, user_id: user.id, email: user.email, name: user.user_metadata?.full_name });
+  } catch (err) {
+    res.status(500).json({ error: 'Lookup failed.' });
+  }
+});
+
 // ─────────────────────────────────────────
 // PSA ADMIN — ADD SUBMISSION
 // ─────────────────────────────────────────
@@ -297,7 +321,7 @@ app.post('/api/psa/admin/add', async (req, res) => {
   try {
     const { data, error } = await getSupabase()
       .from('psa_submissions')
-      .insert({ submission_ref, card_name, submitted_date: submitted_date || null, status: status || 'received', grade: grade || null, notes: notes || null })
+      .insert({ submission_ref, card_name, submitted_date: submitted_date || null, status: status || 'received', grade: grade || null, notes: notes || null, user_id: req.body.user_id || null })
       .select().single();
     if (error) return res.status(500).json({ error: error.message });
     res.json({ success: true, submission: data });
