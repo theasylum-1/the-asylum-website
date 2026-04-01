@@ -294,11 +294,13 @@ app.get('/api/psa/lookup', async (req, res) => {
   if (!q) return res.status(400).json({ error: 'Query required.' });
   try {
     const supabase = getSupabase();
+    console.log('PSA lookup query:', q);
     const { data, error } = await supabase
       .from('psa_submissions')
       .select('*')
       .ilike('submission_ref', '%' + q + '%')
       .order('submitted_date', { ascending: false });
+    console.log('PSA lookup result:', JSON.stringify(data), 'error:', error);
     if (error) return res.status(500).json({ error: error.message });
     res.json(data || []);
   } catch (err) {
