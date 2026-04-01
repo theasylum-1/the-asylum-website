@@ -206,7 +206,8 @@ async function loadAccountPSA() {
 // PSA TRACKER — public lookup
 // ─────────────────────────────────────────
 async function lookupPSA() {
-  const input = document.querySelector('.psa-lookup .input-row input').value.trim();
+  const inputEl = document.getElementById('psa-lookup-input') || document.querySelector('.psa-lookup .input-row input');
+  const input = inputEl ? inputEl.value.trim() : '';
   if (!input) { showToast('Please enter your email or submission ID.', 'error'); return; }
 
   showToast('Looking up your submission...', 'info');
@@ -215,25 +216,22 @@ async function lookupPSA() {
     const res = await fetch(API + '/api/psa/lookup?q=' + encodeURIComponent(input));
     const data = await res.json();
 
-    const tableWrap = document.querySelector('.psa-section');
-    const existingTable = tableWrap.querySelector('.submissions-table');
-    const existingLabel = tableWrap.querySelector('.section-label');
-    if (existingTable) existingTable.parentElement.removeChild(existingTable);
-    if (existingLabel) existingLabel.parentElement.removeChild(existingLabel);
+    const resultsEl = document.getElementById('psa-results');
 
     if (!data.length) {
-      showToast('No submissions found for that email or ID.', 'error');
+      if (resultsEl) resultsEl.innerHTML = '<p style="color:var(--muted);font-size:14px;padding:1rem 0;">No submissions found for that ID. Please check and try again.</p>';
+      showToast('No submissions found.', 'error');
       return;
     }
 
-    let html = '<div class="section-label">Your Submissions</div><table class="submissions-table"><thead><tr><th>Card</th><th>Submitted</th><th>Sub ID</th><th>Status</th><th>Grade</th></tr></thead><tbody>';
+    let html = '<div class="section-label" style="margin-top:1.5rem;">Your Submissions</div><table class="submissions-table"><thead><tr><th>Card</th><th>Submitted</th><th>Sub ID</th><th>Status</th><th>Grade</th></tr></thead><tbody>';
     data.forEach(function (s) {
       html += '<tr><td>' + s.card_name + '</td><td>' + (s.submitted_date || '—') + '</td><td>#' + s.submission_ref + '</td>';
       html += '<td><span class="status-badge ' + s.status + '">' + s.status + '</span></td>';
       html += '<td>' + (s.grade || '—') + '</td></tr>';
     });
     html += '</tbody></table>';
-    tableWrap.insertAdjacentHTML('beforeend', html);
+    if (resultsEl) resultsEl.innerHTML = html;
     showToast('Submissions loaded!', 'success');
   } catch (err) {
     showToast('Lookup failed. Please try again.', 'error');
