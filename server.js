@@ -286,6 +286,82 @@ app.post('/webhook', async (req, res) => {
   res.json({ received: true });
 });
 
+
+// ─────────────────────────────────────────
+// PSA ADMIN — ADD SUBMISSION
+// ─────────────────────────────────────────
+app.post('/api/psa/admin/add', async (req, res) => {
+  const { submission_ref, card_name, submitted_date, status, grade, notes, admin_key } = req.body;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  if (!submission_ref || !card_name) return res.status(400).json({ error: 'Submission ref and card name required.' });
+  try {
+    const { data, error } = await getSupabase()
+      .from('psa_submissions')
+      .insert({ submission_ref, card_name, submitted_date: submitted_date || null, status: status || 'received', grade: grade || null, notes: notes || null })
+      .select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, submission: data });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add submission.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// PSA ADMIN — UPDATE STATUS
+// ─────────────────────────────────────────
+app.post('/api/psa/admin/update', async (req, res) => {
+  const { submission_ref, status, grade, notes, admin_key } = req.body;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  if (!submission_ref || !status) return res.status(400).json({ error: 'Submission ref and status required.' });
+  try {
+    const { data, error } = await getSupabase()
+      .from('psa_submissions')
+      .update({ status, grade: grade || null, notes: notes || null, updated_at: new Date().toISOString() })
+      .eq('submission_ref', submission_ref)
+      .select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, submission: data });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update submission.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// PSA ADMIN — GET ALL SUBMISSIONS
+// ─────────────────────────────────────────
+app.get('/api/psa/admin/all', async (req, res) => {
+  const { admin_key } = req.query;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  try {
+    const { data, error } = await getSupabase()
+      .from('psa_submissions')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load submissions.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// PSA ADMIN — DELETE SUBMISSION
+// ─────────────────────────────────────────
+app.delete('/api/psa/admin/delete/:ref', async (req, res) => {
+  const { admin_key } = req.body;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  try {
+    const { error } = await getSupabase()
+      .from('psa_submissions')
+      .delete()
+      .eq('submission_ref', req.params.ref);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete submission.' });
+  }
+});
+
 // ─────────────────────────────────────────
 // PSA SUBMISSIONS — PUBLIC LOOKUP by email or ref
 // ─────────────────────────────────────────

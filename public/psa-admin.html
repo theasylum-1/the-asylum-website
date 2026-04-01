@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PSA Admin — The Asylum</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black:#0a0a0a;--deep:#111;--surface:#1a1a1a;--card:#1f1f1f;
+    --border:#2a2a2a;--red:#c0392b;--red-bright:#e74c3c;--text:#e8e0d8;--muted:#888;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--black);color:var(--text);font-family:'Barlow',sans-serif;font-size:15px;line-height:1.6;}
+  header{background:var(--deep);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+  header h1{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:4px;color:var(--text);}
+  header span{color:var(--red-bright);}
+  .lock-screen{max-width:400px;margin:6rem auto;padding:2rem;background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--red);text-align:center;}
+  .lock-screen h2{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:3px;margin-bottom:0.5rem;}
+  .lock-screen p{color:var(--muted);font-size:13px;margin-bottom:1.5rem;}
+  .main{display:none;max-width:1100px;margin:2rem auto;padding:0 2rem;}
+  .main.visible{display:block;}
+  .section-label{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:5px;text-transform:uppercase;color:var(--red-bright);margin-bottom:1rem;padding-bottom:0.5rem;border-bottom:1px solid var(--border);}
+  .card{background:var(--card);border:1px solid var(--border);padding:1.5rem;margin-bottom:1.5rem;}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;}
+  .form-grid.three{grid-template-columns:2fr 1fr 1fr;}
+  .form-grid.four{grid-template-columns:1fr 1fr 1fr 1fr;}
+  .form-group label{display:block;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+  .form-group input,.form-group select,.form-group textarea{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:'Barlow',sans-serif;font-size:14px;outline:none;}
+  .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--red);}
+  .form-group select option{background:var(--card);}
+  .form-group textarea{resize:vertical;min-height:80px;}
+  .btn-primary{background:var(--red);color:#fff;border:none;padding:10px 24px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:3px;text-transform:uppercase;cursor:pointer;transition:background 0.2s;}
+  .btn-primary:hover{background:var(--red-bright);}
+  .btn-outline{background:transparent;color:var(--text);border:1px solid var(--border);padding:8px 18px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:border-color 0.2s,color 0.2s;}
+  .btn-outline:hover{border-color:var(--red);color:var(--red-bright);}
+  .btn-danger{background:transparent;color:#e74c3c;border:1px solid #4a1a1a;padding:6px 14px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;}
+  .btn-danger:hover{background:#2a0a0a;}
+  table{width:100%;border-collapse:collapse;}
+  th{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);text-align:left;padding:0.75rem 1rem;border-bottom:1px solid var(--border);background:var(--surface);}
+  td{padding:0.75rem 1rem;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  tr:hover td{background:var(--surface);}
+  .status-badge{display:inline-block;padding:3px 10px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;}
+  .status-badge.received{background:#1a2a1a;color:#4caf50;border:1px solid #2d4a2d;}
+  .status-badge.grading{background:#1a1a2a;color:#5b9cf6;border:1px solid #2d2d4a;}
+  .status-badge.shipped{background:#2a1a0a;color:#ff9800;border:1px solid #4a2d0a;}
+  .status-badge.complete{background:#2a0a0a;color:#e74c3c;border:1px solid #4a1a1a;}
+  .status-select{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:4px 8px;font-family:'Barlow Condensed',sans-serif;font-size:12px;outline:none;cursor:pointer;}
+  .grade-input{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:4px 8px;font-family:'Barlow',sans-serif;font-size:12px;outline:none;width:70px;}
+  .toast{position:fixed;bottom:2rem;right:2rem;padding:1rem 1.5rem;font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:1px;z-index:9999;max-width:320px;}
+  .toast.success{background:#1a2a1a;border:1px solid #4caf50;color:#4caf50;}
+  .toast.error{background:#2a0a0a;border:1px solid #e74c3c;color:#e74c3c;}
+  .toast.info{background:#1a1a2a;border:1px solid #5b9cf6;color:#5b9cf6;}
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);margin-bottom:1.5rem;}
+  .stat{background:var(--card);padding:1.25rem;text-align:center;}
+  .stat-num{font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--red-bright);letter-spacing:2px;}
+  .stat-label{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-top:4px;}
+  .search-bar{display:flex;gap:1rem;margin-bottom:1.5rem;}
+  .search-bar input{flex:1;background:var(--card);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:'Barlow',sans-serif;font-size:14px;outline:none;}
+  .search-bar input:focus{border-color:var(--red);}
+  .filter-btns{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;}
+  .filter-btn{padding:6px 16px;background:var(--card);border:1px solid var(--border);color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;}
+  .filter-btn.active{border-color:var(--red);color:var(--red-bright);}
+  input[type=password]{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:12px 16px;font-family:'Barlow',sans-serif;font-size:15px;outline:none;margin-bottom:1rem;}
+  input[type=password]:focus{border-color:var(--red);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>PSA <span>Admin</span></h1>
+  <div style="display:flex;gap:1rem;align-items:center;">
+    <span id="header-status" style="font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;"></span>
+    <button class="btn-outline" onclick="lockScreen()">Lock</button>
+  </div>
+</header>
+
+<!-- LOCK SCREEN -->
+<div class="lock-screen" id="lock-screen">
+  <h2>Admin Access</h2>
+  <p>Enter your admin key to manage PSA submissions</p>
+  <input type="password" id="admin-key-input" placeholder="Admin key..." onkeydown="if(event.key==='Enter')unlock()">
+  <button class="btn-primary" style="width:100%;padding:14px;" onclick="unlock()">Unlock</button>
+</div>
+
+<!-- MAIN ADMIN -->
+<div class="main" id="main-content">
+
+  <!-- STATS -->
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat"><div class="stat-num" id="stat-total">0</div><div class="stat-label">Total</div></div>
+    <div class="stat"><div class="stat-num" id="stat-received">0</div><div class="stat-label">Received</div></div>
+    <div class="stat"><div class="stat-num" id="stat-grading">0</div><div class="stat-label">Grading</div></div>
+    <div class="stat"><div class="stat-num" id="stat-complete">0</div><div class="stat-label">Complete</div></div>
+  </div>
+
+  <!-- ADD NEW SUBMISSION -->
+  <div class="card">
+    <div class="section-label">Add New Submission</div>
+    <div class="form-grid three">
+      <div class="form-group">
+        <label>Card Name</label>
+        <input type="text" id="new-card-name" placeholder="e.g. Charizard Base Set Holo">
+      </div>
+      <div class="form-group">
+        <label>Submission Ref / ID</label>
+        <input type="text" id="new-ref" placeholder="e.g. PSA-2501">
+      </div>
+      <div class="form-group">
+        <label>Date Submitted</label>
+        <input type="date" id="new-date">
+      </div>
+    </div>
+    <div class="form-grid four">
+      <div class="form-group">
+        <label>Customer Name</label>
+        <input type="text" id="new-customer" placeholder="Customer name">
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="new-status">
+          <option value="received">Received</option>
+          <option value="grading">Grading</option>
+          <option value="shipped">Shipped</option>
+          <option value="complete">Complete</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Grade (if complete)</label>
+        <input type="text" id="new-grade" placeholder="e.g. PSA 10">
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <input type="text" id="new-notes" placeholder="Optional notes">
+      </div>
+    </div>
+    <button class="btn-primary" onclick="addSubmission()">+ Add Submission</button>
+  </div>
+
+  <!-- SUBMISSIONS TABLE -->
+  <div class="card">
+    <div class="section-label">All Submissions</div>
+
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Search by card name, ref, or customer..." oninput="filterTable()">
+      <button class="btn-outline" onclick="loadSubmissions()">Refresh</button>
+    </div>
+
+    <div class="filter-btns">
+      <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+      <button class="filter-btn" onclick="setFilter('received', this)">Received</button>
+      <button class="filter-btn" onclick="setFilter('grading', this)">Grading</button>
+      <button class="filter-btn" onclick="setFilter('shipped', this)">Shipped</button>
+      <button class="filter-btn" onclick="setFilter('complete', this)">Complete</button>
+    </div>
+
+    <div id="table-wrap">
+      <p style="color:var(--muted);font-size:14px;">Loading submissions...</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+var ADMIN_KEY = '';
+var allSubmissions = [];
+var activeFilter = 'all';
+
+function unlock() {
+  var key = document.getElementById('admin-key-input').value.trim();
+  if (!key) { showToast('Enter your admin key.', 'error'); return; }
+  ADMIN_KEY = key;
+  loadSubmissions();
+}
+
+function lockScreen() {
+  ADMIN_KEY = '';
+  document.getElementById('main-content').classList.remove('visible');
+  document.getElementById('lock-screen').style.display = 'block';
+  document.getElementById('admin-key-input').value = '';
+}
+
+async function loadSubmissions() {
+  try {
+    const res = await fetch('/api/psa/admin/all?admin_key=' + encodeURIComponent(ADMIN_KEY));
+    const data = await res.json();
+    if (res.status === 403) { showToast('Wrong admin key.', 'error'); return; }
+    if (!res.ok) { showToast(data.error || 'Failed to load.', 'error'); return; }
+
+    // Unlock UI
+    document.getElementById('lock-screen').style.display = 'none';
+    document.getElementById('main-content').classList.add('visible');
+    document.getElementById('header-status').textContent = data.length + ' submissions';
+
+    allSubmissions = data;
+    updateStats(data);
+    renderTable(data);
+  } catch (err) {
+    showToast('Connection error. Check your network.', 'error');
+  }
+}
+
+function updateStats(data) {
+  document.getElementById('stat-total').textContent = data.length;
+  document.getElementById('stat-received').textContent = data.filter(function(s){return s.status==='received';}).length;
+  document.getElementById('stat-grading').textContent = data.filter(function(s){return s.status==='grading';}).length;
+  document.getElementById('stat-complete').textContent = data.filter(function(s){return s.status==='complete';}).length;
+}
+
+function setFilter(filter, btn) {
+  activeFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  filterTable();
+}
+
+function filterTable() {
+  var search = document.getElementById('search-input').value.toLowerCase();
+  var filtered = allSubmissions.filter(function(s) {
+    var matchesFilter = activeFilter === 'all' || s.status === activeFilter;
+    var matchesSearch = !search ||
+      (s.card_name && s.card_name.toLowerCase().includes(search)) ||
+      (s.submission_ref && s.submission_ref.toLowerCase().includes(search)) ||
+      (s.notes && s.notes.toLowerCase().includes(search));
+    return matchesFilter && matchesSearch;
+  });
+  renderTable(filtered);
+}
+
+function renderTable(data) {
+  var wrap = document.getElementById('table-wrap');
+  if (!data.length) {
+    wrap.innerHTML = '<p style="color:var(--muted);font-size:14px;padding:1rem 0;">No submissions found.</p>';
+    return;
+  }
+  var html = '<table><thead><tr><th>Card</th><th>Ref</th><th>Submitted</th><th>Status</th><th>Grade</th><th>Notes</th><th>Actions</th></tr></thead><tbody>';
+  data.forEach(function(s) {
+    html += '<tr id="row-' + s.submission_ref + '">';
+    html += '<td style="max-width:200px;">' + s.card_name + '</td>';
+    html += '<td><code style="color:var(--red-bright);font-size:12px;">' + s.submission_ref + '</code></td>';
+    html += '<td>' + (s.submitted_date || '—') + '</td>';
+    html += '<td><select class="status-select" onchange="quickUpdate(\'' + s.submission_ref + '\', this.value, null)">';
+    ['received','grading','shipped','complete'].forEach(function(st) {
+      html += '<option value="' + st + '"' + (s.status===st?' selected':'') + '>' + st.charAt(0).toUpperCase()+st.slice(1) + '</option>';
+    });
+    html += '</select></td>';
+    html += '<td><input class="grade-input" type="text" value="' + (s.grade||'') + '" placeholder="—" onblur="quickUpdate(\'' + s.submission_ref + '\', null, this.value)"></td>';
+    html += '<td style="max-width:150px;color:var(--muted);font-size:12px;">' + (s.notes||'—') + '</td>';
+    html += '<td><button class="btn-danger" onclick="deleteSubmission(\'' + s.submission_ref + '\')">Delete</button></td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+async function quickUpdate(ref, status, grade) {
+  var row = document.querySelector('#row-' + ref.replace(/[^a-zA-Z0-9]/g, '\\\\$&'));
+  var currentStatus = status;
+  var currentGrade = grade;
+
+  if (!currentStatus) {
+    var sel = document.querySelector('#row-' + CSS.escape(ref) + ' .status-select');
+    if (sel) currentStatus = sel.value;
+  }
+  if (!currentGrade && currentGrade !== '') {
+    var gi = document.querySelector('#row-' + CSS.escape(ref) + ' .grade-input');
+    if (gi) currentGrade = gi.value;
+  }
+
+  try {
+    const res = await fetch('/api/psa/admin/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ submission_ref: ref, status: currentStatus, grade: currentGrade, admin_key: ADMIN_KEY })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Update failed.', 'error'); return; }
+    showToast('Updated ' + ref + ' → ' + currentStatus, 'success');
+    // Update local data
+    var s = allSubmissions.find(function(x){return x.submission_ref===ref;});
+    if (s) { if(currentStatus) s.status = currentStatus; if(currentGrade!==null) s.grade = currentGrade; }
+    updateStats(allSubmissions);
+  } catch (err) {
+    showToast('Update failed.', 'error');
+  }
+}
+
+async function addSubmission() {
+  var cardName = document.getElementById('new-card-name').value.trim();
+  var ref = document.getElementById('new-ref').value.trim();
+  var date = document.getElementById('new-date').value;
+  var status = document.getElementById('new-status').value;
+  var grade = document.getElementById('new-grade').value.trim();
+  var notes = document.getElementById('new-customer').value.trim();
+
+  if (!cardName || !ref) { showToast('Card name and submission ref are required.', 'error'); return; }
+
+  try {
+    const res = await fetch('/api/psa/admin/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ submission_ref: ref, card_name: cardName, submitted_date: date || null, status, grade: grade || null, notes: notes || null, admin_key: ADMIN_KEY })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Failed to add.', 'error'); return; }
+
+    showToast('Submission ' + ref + ' added!', 'success');
+    document.getElementById('new-card-name').value = '';
+    document.getElementById('new-ref').value = '';
+    document.getElementById('new-date').value = '';
+    document.getElementById('new-grade').value = '';
+    document.getElementById('new-notes').value = '';
+    document.getElementById('new-customer').value = '';
+    loadSubmissions();
+  } catch (err) {
+    showToast('Failed to add submission.', 'error');
+  }
+}
+
+async function deleteSubmission(ref) {
+  if (!confirm('Delete submission ' + ref + '? This cannot be undone.')) return;
+  try {
+    const res = await fetch('/api/psa/admin/delete/' + encodeURIComponent(ref), {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: ADMIN_KEY })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Delete failed.', 'error'); return; }
+    showToast('Submission deleted.', 'success');
+    loadSubmissions();
+  } catch (err) {
+    showToast('Delete failed.', 'error');
+  }
+}
+
+function showToast(message, type) {
+  var existing = document.getElementById('toast');
+  if (existing) existing.remove();
+  var t = document.createElement('div');
+  t.id = 'toast';
+  t.className = 'toast ' + type;
+  t.textContent = message;
+  document.body.appendChild(t);
+  setTimeout(function(){ if(t.parentElement) t.remove(); }, 3500);
+}
+</script>
+</body>
+</html>
