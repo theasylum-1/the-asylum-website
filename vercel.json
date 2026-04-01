@@ -1,22 +1,6 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "server.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "server.js"
-    }
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/server.js" }
   ]
 }
-```
-
-Save it with **Cmd+S**, then back in your VS Code terminal run:
-```
-git add .
-git commit -m "Add Vercel config"
-git push
