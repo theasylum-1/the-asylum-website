@@ -287,6 +287,26 @@ app.post('/webhook', async (req, res) => {
 });
 
 // ─────────────────────────────────────────
+// PSA SUBMISSIONS — PUBLIC LOOKUP by email or ref
+// ─────────────────────────────────────────
+app.get('/api/psa/lookup', async (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.status(400).json({ error: 'Query required.' });
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('psa_submissions')
+      .select('*')
+      .or('submission_ref.ilike.%' + q + '%')
+      .order('submitted_date', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  } catch (err) {
+    res.status(500).json({ error: 'Lookup failed.' });
+  }
+});
+
+// ─────────────────────────────────────────
 // PSA SUBMISSIONS — GET (requires auth)
 // ─────────────────────────────────────────
 app.get('/api/psa/:user_id', async (req, res) => {
