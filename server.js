@@ -1,11 +1,29 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+
+// Lazy-initialize Stripe so a missing key doesn't crash the whole server
+let _stripe = null;
+function getStripe() {
+  if (!_stripe) {
+    if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY not set');
+    _stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  }
+  return _stripe;
+}
+
+// Lazy-initialize Supabase
+let _supabase = null;
+function getSupabase() {
+  if (!_supabase) {
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) throw new Error('Supabase env vars not set');
+    _supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+  }
+  return _supabase;
+}
 
 app.use(cors());
 app.use(express.static('public'));
@@ -18,7 +36,16 @@ app.use(express.json());
 // HEALTH CHECK
 // ─────────────────────────────────────────
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'The Asylum server is running' });
+  res.json({
+    status: 'ok',
+    message: 'The Asylum server is running',
+    env: {
+      stripe: !!process.env.STRIPE_SECRET_KEY,
+      supabase: !!process.env.SUPABASE_URL,
+      paypal: !!process.env.PAYPAL_CLIENT_ID,
+      admin: !!process.env.ADMIN_KEY,
+    }
+  });
 });
 
 // ─────────────────────────────────────────
@@ -30,7 +57,7 @@ app.post('/api/auth/signup', async (req, res) => {
     return res.status(400).json({ error: 'Name, email and password are required.' });
   }
   try {
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await getSupabase().auth.signUp({
       email,
       password,
       options: { data: { full_name, phone, sms_optin: sms_optin || false } }
@@ -39,7 +66,7 @@ app.post('/api/auth/signup', async (req, res) => {
 
     // If they opted into SMS, add to sms_subscribers table
     if (sms_optin && phone) {
-      await supabase.from('sms_subscribers').insert({ phone, name: full_name, source: 'signup' });
+      await getSupabase().from('sms_subscribers').insert({ phone, name: full_name, source: 'signup' });
     }
 
     res.json({ success: true, user: data.user });
@@ -54,7 +81,7 @@ app.post('/api/auth/signup', async (req, res) => {
 app.post('/api/auth/signin', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await getSupabase().auth.signInWithPassword({ email, password });
     if (error) return res.status(401).json({ error: 'Invalid email or password.' });
     res.json({ success: true, session: data.session, user: data.user });
   } catch (err) {
@@ -68,7 +95,7 @@ app.post('/api/auth/signin', async (req, res) => {
 app.get('/api/breaks', async (req, res) => {
   const { brand } = req.query;
   try {
-    let query = supabase.from('breaks').select('*').eq('is_active', true).order('created_at', { ascending: true });
+    let query = getSupabase().from('breaks').select('*').eq('is_active', true).order('created_at', { ascending: true });
     if (brand) query = query.eq('brand', brand);
     const { data, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
@@ -87,7 +114,7 @@ app.post('/api/breaks', async (req, res) => {
     return res.status(403).json({ error: 'Unauthorized.' });
   }
   try {
-    const { data, error } = await supabase.from('breaks').insert({
+    const { data, error } = await getSupabase().from('breaks').insert({
       brand, name, break_date, price, total_spots, filled_spots: 0, is_active: true
     }).select().single();
     if (error) return res.status(500).json({ error: error.message });
@@ -106,7 +133,7 @@ app.delete('/api/breaks/:id', async (req, res) => {
     return res.status(403).json({ error: 'Unauthorized.' });
   }
   try {
-    const { error } = await supabase.from('breaks').update({ is_active: false }).eq('id', req.params.id);
+    const { error } = await getSupabase().from('breaks').update({ is_active: false }).eq('id', req.params.id);
     if (error) return res.status(500).json({ error: error.message });
     res.json({ success: true });
   } catch (err) {
@@ -119,7 +146,7 @@ app.delete('/api/breaks/:id', async (req, res) => {
 // ─────────────────────────────────────────
 app.get('/api/shop', async (req, res) => {
   try {
-    const { data, error } = await supabase.from('shop_items').select('*').eq('in_stock', true).order('created_at', { ascending: false });
+    const { data, error } = await getSupabase().from('shop_items').select('*').eq('in_stock', true).order('created_at', { ascending: false });
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
   } catch (err) {
@@ -136,7 +163,7 @@ app.post('/api/stripe/create-payment-intent', async (req, res) => {
     return res.status(400).json({ error: 'Invalid amount.' });
   }
   try {
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await getStripe().paymentIntents.create({
       amount: Math.round(amount * 100), // Stripe uses cents
       currency: 'usd',
       metadata: { item_name, item_id, order_type }
@@ -232,14 +259,14 @@ app.post('/webhook', async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    event = require('stripe')(process.env.STRIPE_SECRET_KEY).webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
   if (event.type === 'payment_intent.succeeded') {
     const pi = event.data.object;
-    await supabase.from('orders').insert({
+    await getSupabase().from('orders').insert({
       order_type: pi.metadata.order_type || 'shop',
       item_id: pi.metadata.item_id || null,
       amount: pi.amount / 100,
@@ -276,7 +303,7 @@ app.post('/api/sms-subscribe', async (req, res) => {
   if (!phone) return res.status(400).json({ error: 'Phone number required.' });
   try {
     // Save to Supabase
-    await supabase.from('sms_subscribers').insert({ phone, name: name || '', source: source || 'website' });
+    await getSupabase().from('sms_subscribers').insert({ phone, name: name || '', source: source || 'website' });
 
     // Send to Zapier webhook → Zapier adds contact to Textedly + triggers welcome text
     await fetch('https://hooks.zapier.com/hooks/catch/27059353/unemqks/', {
@@ -301,7 +328,7 @@ app.post('/api/contact', async (req, res) => {
   }
   try {
     // Save to Supabase for your records
-    await supabase.from('contact_messages').insert({ name, email, subject, message });
+    await getSupabase().from('contact_messages').insert({ name, email, subject, message });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to send message.' });
