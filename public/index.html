@@ -1497,6 +1497,21 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
+// Handle browser back/forward buttons
+window.addEventListener('hashchange', function() {
+  var hash = window.location.hash.replace('#', '');
+  var validPages = ['home','breaks','shop','psa','about','contact','sms','account'];
+  if (hash && validPages.includes(hash)) {
+    // Call original showPage to avoid double hash writing
+    if (_originalShowPage) _originalShowPage(hash);
+    if (hash === 'account') renderAccountPage();
+    if (hash === 'breaks') { loadBreaks(); }
+    if (hash === 'shop') loadShopItems();
+  } else {
+    if (_originalShowPage) _originalShowPage('home');
+  }
+});
+
 // ─────────────────────────────────────────
 // MANUAL PAYMENT MODALS (Venmo/CashApp/Zelle)
 // ─────────────────────────────────────────
