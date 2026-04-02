@@ -259,15 +259,12 @@ async function loadBreaks() {
       return { name: b.name, date: b.break_date, price: '$' + b.price, spots: b.total_spots, filled: b.filled_spots, id: b.id, break_type: b.break_type || 'standard', sport: b.sport || '' };
     });
 
-    // Override the hardcoded breaks with live data
-    if (typeof breaks !== 'undefined') {
-      breaks.hsa = liveBreaks.hsa;
-      breaks.ab = liveBreaks.ab;
-    }
+    // Update the global breaks object with live data
+    breaks.hsa = liveBreaks.hsa;
+    breaks.ab = liveBreaks.ab;
 
-    if (document.getElementById('page-breaks').classList.contains('active')) {
-      renderBreaks();
-    }
+    // Always re-render if breaks page is visible
+    renderBreaks();
   } catch (err) {
     console.log('Could not load live breaks, using defaults.');
   }
