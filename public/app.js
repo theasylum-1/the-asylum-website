@@ -413,3 +413,144 @@ window.showPage = function (id) {
   if (id === 'account') renderAccountPage();
   if (id === 'breaks') loadBreaks();
 };
+
+// ─────────────────────────────────────────
+// MANUAL PAYMENT MODALS (Venmo/CashApp/Zelle)
+// ─────────────────────────────────────────
+function openPayModal(type) {
+  document.getElementById('modal-overlay').classList.remove('open');
+  document.getElementById(type + '-modal').classList.add('open');
+}
+
+function closePayModal(type) {
+  document.getElementById(type + '-modal').classList.remove('open');
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(function() {
+    showToast('Copied to clipboard!', 'success');
+  }).catch(function() {
+    showToast('Copy failed — please copy manually.', 'error');
+  });
+}
+
+// ─────────────────────────────────────────
+// STRIPE PAYMENT
+// ─────────────────────────────────────────
+async function initiateStripePayment() {
+  var amount = window.currentOrderAmount || 0;
+  var itemName = window.currentOrderItem || 'The Asylum Order';
+
+  if (!amount) {
+    showToast('No amount set for this order.', 'error');
+    return;
+  }
+
+  showToast('Loading secure payment...', 'info');
+
+  try {
+    const res = await fetch(API + '/api/stripe/create-payment-intent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, item_name: itemName, order_type: 'shop' })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Payment setup failed.', 'error'); return; }
+
+    // Load Stripe.js and show payment form
+    if (!window.Stripe) {
+      var script = document.createElement('script');
+      script.src = 'https://js.stripe.com/v3/';
+      script.onload = function() { showStripeForm(data.clientSecret, data.publishableKey, amount, itemName); };
+      document.head.appendChild(script);
+    } else {
+      showStripeForm(data.clientSecret, data.publishableKey, amount, itemName);
+    }
+  } catch (err) {
+    showToast('Payment setup failed. Please try again.', 'error');
+  }
+}
+
+function showStripeForm(clientSecret, publishableKey, amount, itemName) {
+  var existing = document.getElementById('stripe-payment-overlay');
+  if (existing) existing.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'stripe-payment-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:400;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = '<div style="background:#111;border:1px solid #2a2a2a;border-top:2px solid #e74c3c;padding:2.5rem;width:100%;max-width:440px;position:relative;">' +
+    '<button onclick="document.getElementById(\'stripe-payment-overlay\').remove()" style="position:absolute;top:1rem;right:1rem;background:none;border:none;color:#888;font-size:24px;cursor:pointer;">&#215;</button>' +
+    '<h2 style="font-family:\'Bebas Neue\',sans-serif;font-size:32px;letter-spacing:3px;color:#e8e0d8;margin-bottom:0.25rem;">Secure Payment</h2>' +
+    '<p style="font-size:13px;color:#888;margin-bottom:1.5rem;font-family:\'Barlow Condensed\',sans-serif;letter-spacing:2px;text-transform:uppercase;">' + itemName + ' — $' + amount + '</p>' +
+    '<div id="stripe-card-element" style="background:#1f1f1f;border:1px solid #2a2a2a;padding:14px;margin-bottom:1rem;"></div>' +
+    '<div id="stripe-error" style="color:#e74c3c;font-size:13px;margin-bottom:1rem;"></div>' +
+    '<button id="stripe-submit-btn" onclick="confirmStripePayment(\'' + clientSecret + '\')" style="width:100%;background:#c0392b;color:#fff;border:none;padding:14px;font-family:\'Barlow Condensed\',sans-serif;font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;cursor:pointer;">Pay $' + amount + '</button>' +
+    '</div>';
+  document.body.appendChild(overlay);
+
+  var stripe = window.Stripe(publishableKey);
+  var elements = stripe.elements();
+  var card = elements.create('card', {
+    style: { base: { color: '#e8e0d8', fontFamily: 'Barlow, sans-serif', fontSize: '15px', '::placeholder': { color: '#555' } }, invalid: { color: '#e74c3c' } }
+  });
+  card.mount('#stripe-card-element');
+  window._stripeCard = card;
+  window._stripe = stripe;
+}
+
+async function confirmStripePayment(clientSecret) {
+  var btn = document.getElementById('stripe-submit-btn');
+  btn.textContent = 'Processing...';
+  btn.disabled = true;
+
+  var result = await window._stripe.confirmCardPayment(clientSecret, {
+    payment_method: { card: window._stripeCard }
+  });
+
+  if (result.error) {
+    document.getElementById('stripe-error').textContent = result.error.message;
+    btn.textContent = 'Try Again';
+    btn.disabled = false;
+  } else {
+    document.getElementById('stripe-payment-overlay').remove();
+    document.getElementById('modal-overlay').classList.remove('open');
+    showToast('Payment successful! Thank you!', 'success');
+  }
+}
+
+// ─────────────────────────────────────────
+// PAYPAL PAYMENT
+// ─────────────────────────────────────────
+async function initiatePayPalPayment() {
+  var amount = window.currentOrderAmount || 0;
+  var itemName = window.currentOrderItem || 'The Asylum Order';
+
+  if (!amount) { showToast('No amount set for this order.', 'error'); return; }
+
+  showToast('Setting up PayPal...', 'info');
+
+  try {
+    const res = await fetch(API + '/api/paypal/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, item_name: itemName })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'PayPal setup failed.', 'error'); return; }
+
+    // Redirect to PayPal
+    window.open('https://www.paypal.com/checkoutnow?token=' + data.orderID, '_blank');
+    showToast('PayPal opened in a new tab. Complete your payment there.', 'info');
+  } catch (err) {
+    showToast('PayPal setup failed. Please try again.', 'error');
+  }
+}
+
+// ─────────────────────────────────────────
+// SET ORDER DETAILS (called when user clicks Buy Now or Enter break)
+// ─────────────────────────────────────────
+function setOrderAndCheckout(amount, itemName) {
+  window.currentOrderAmount = amount;
+  window.currentOrderItem = itemName;
+  openModal('checkout');
+}
