@@ -323,10 +323,10 @@ app.post('/api/psa/admin/add', async (req, res) => {
       .from('psa_submissions')
       .insert({ submission_ref, card_name, submitted_date: submitted_date || null, status: status || 'received', grade: grade || null, notes: notes || null, user_id: req.body.user_id || null })
       .select().single();
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) return res.status(500).json({ error: error.message, details: error.details, hint: error.hint });
     res.json({ success: true, submission: data });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to add submission.' });
+    res.status(500).json({ error: 'Failed to add submission.', details: err.message });
   }
 });
 
@@ -413,13 +413,13 @@ app.get('/api/psa/lookup', async (req, res) => {
 // ─────────────────────────────────────────
 app.get('/api/psa/:user_id', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('psa_submissions')
       .select('*')
       .eq('user_id', req.params.user_id)
       .order('submitted_date', { ascending: false });
     if (error) return res.status(500).json({ error: error.message });
-    res.json(data);
+    res.json(data || []);
   } catch (err) {
     res.status(500).json({ error: 'Failed to load submissions.' });
   }
