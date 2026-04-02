@@ -56,6 +56,42 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+
+// ─────────────────────────────────────────
+// USER PROFILE — GET
+// ─────────────────────────────────────────
+app.get('/api/profile/:user_id', async (req, res) => {
+  try {
+    const { data, error } = await getSupabase()
+      .from('user_profiles')
+      .select('*')
+      .eq('id', req.params.user_id)
+      .single();
+    if (error && error.code !== 'PGRST116') return res.status(500).json({ error: error.message });
+    res.json(data || {});
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load profile.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// USER PROFILE — SAVE/UPDATE
+// ─────────────────────────────────────────
+app.post('/api/profile', async (req, res) => {
+  const { user_id, full_name, phone, address_line1, address_line2, city, state, zip } = req.body;
+  if (!user_id) return res.status(400).json({ error: 'User ID required.' });
+  try {
+    const { data, error } = await getSupabase()
+      .from('user_profiles')
+      .upsert({ id: user_id, full_name, phone, address_line1, address_line2, city, state, zip, updated_at: new Date().toISOString() })
+      .select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, profile: data });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save profile.' });
+  }
+});
+
 // ─────────────────────────────────────────
 // AUTH — SIGN UP
 // ─────────────────────────────────────────
@@ -75,6 +111,13 @@ app.post('/api/auth/signup', async (req, res) => {
     // If they opted into SMS, add to sms_subscribers table
     if (sms_optin && phone) {
       await getSupabase().from('sms_subscribers').insert({ phone, name: full_name, source: 'signup' });
+    }
+
+    // Create initial profile
+    if (data.user) {
+      await getSupabase().from('user_profiles').upsert({
+        id: data.user.id, full_name, phone: phone || null
+      });
     }
 
     res.json({ success: true, user: data.user });

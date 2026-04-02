@@ -437,6 +437,16 @@
             <input type="tel" placeholder="Your phone number (555) 555-5555" id="phone-input-signup">
           </div>
         </div>
+        <div style="margin-top:0.5rem;">
+          <div style="font-family:sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:0.75rem;">Shipping Address <span style="color:#555;font-size:10px;">(optional — add later in your account)</span></div>
+          <input type="text" id="signup-address1" placeholder="Street address" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:sans-serif;font-size:14px;outline:none;margin-bottom:8px;">
+          <input type="text" id="signup-address2" placeholder="Apt, suite, unit (optional)" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:sans-serif;font-size:14px;outline:none;margin-bottom:8px;">
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;">
+            <input type="text" id="signup-city" placeholder="City" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:sans-serif;font-size:14px;outline:none;">
+            <input type="text" id="signup-state" placeholder="State" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:sans-serif;font-size:14px;outline:none;">
+            <input type="text" id="signup-zip" placeholder="ZIP" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:sans-serif;font-size:14px;outline:none;">
+          </div>
+        </div>
         <button class="btn-primary" style="width:100%;padding:14px;" onclick="submitSignup()">Create Account</button>
       </div>
       <div class="modal-footer">Already have an account? <a onclick="switchModal('login')">Sign in</a></div>
@@ -969,10 +979,16 @@ async function submitSignup() {
   showToast('Creating your account...', 'info');
 
   try {
+    const address1 = document.getElementById('signup-address1') ? document.getElementById('signup-address1').value.trim() : '';
+    const address2 = document.getElementById('signup-address2') ? document.getElementById('signup-address2').value.trim() : '';
+    const city = document.getElementById('signup-city') ? document.getElementById('signup-city').value.trim() : '';
+    const state = document.getElementById('signup-state') ? document.getElementById('signup-state').value.trim() : '';
+    const zip = document.getElementById('signup-zip') ? document.getElementById('signup-zip').value.trim() : '';
+
     const res = await fetch(API + '/api/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, full_name: name, phone, sms_optin: smsChecked })
+      body: JSON.stringify({ email, password, full_name: name, phone, sms_optin: smsChecked, address_line1: address1, address_line2: address2, city, state, zip })
     });
     const data = await res.json();
     if (!res.ok) { showToast(data.error || 'Signup failed.', 'error'); return; }
@@ -1109,6 +1125,82 @@ async function loadAccountPSA() {
     el.innerHTML = html;
   } catch (err) {
     document.getElementById('account-psa-list').innerHTML = '<p style="color:var(--muted);font-size:14px;">Could not load submissions.</p>';
+  }
+}
+
+// ─────────────────────────────────────────
+// ACCOUNT — ADDRESS
+// ─────────────────────────────────────────
+async function loadAccountAddress() {
+  if (!currentUser) return;
+  try {
+    const res = await fetch(API + '/api/profile/' + currentUser.id);
+    const profile = await res.json();
+    const display = document.getElementById('address-display');
+    if (!display) return;
+
+    if (profile && profile.address_line1) {
+      let addr = profile.address_line1;
+      if (profile.address_line2) addr += '<br>' + profile.address_line2;
+      if (profile.city || profile.state || profile.zip) {
+        addr += '<br>' + [profile.city, profile.state, profile.zip].filter(Boolean).join(', ');
+      }
+      display.innerHTML = '<p style="font-size:14px;line-height:1.8;color:var(--text);">' + addr + '</p>';
+
+      // Pre-fill form fields
+      if (document.getElementById('acct-address1')) {
+        document.getElementById('acct-address1').value = profile.address_line1 || '';
+        document.getElementById('acct-address2').value = profile.address_line2 || '';
+        document.getElementById('acct-city').value = profile.city || '';
+        document.getElementById('acct-state').value = profile.state || '';
+        document.getElementById('acct-zip').value = profile.zip || '';
+      }
+    } else {
+      display.innerHTML = '<p style="color:var(--muted);font-size:14px;">No address saved yet. Click Edit to add one.</p>';
+    }
+  } catch (err) {
+    const display = document.getElementById('address-display');
+    if (display) display.innerHTML = '<p style="color:var(--muted);font-size:14px;">Could not load address.</p>';
+  }
+}
+
+function toggleAddressEdit() {
+  const form = document.getElementById('address-form');
+  const btn = document.getElementById('address-edit-btn');
+  if (!form) return;
+  if (form.style.display === 'none') {
+    form.style.display = 'block';
+    btn.textContent = 'Cancel';
+  } else {
+    form.style.display = 'none';
+    btn.textContent = 'Edit';
+  }
+}
+
+async function saveAddress() {
+  if (!currentUser) return;
+  const body = {
+    user_id: currentUser.id,
+    full_name: currentUser.user_metadata?.full_name || '',
+    address_line1: document.getElementById('acct-address1').value.trim(),
+    address_line2: document.getElementById('acct-address2').value.trim(),
+    city: document.getElementById('acct-city').value.trim(),
+    state: document.getElementById('acct-state').value.trim(),
+    zip: document.getElementById('acct-zip').value.trim(),
+  };
+  try {
+    const res = await fetch(API + '/api/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Save failed.', 'error'); return; }
+    showToast('Address saved!', 'success');
+    toggleAddressEdit();
+    loadAccountAddress();
+  } catch (err) {
+    showToast('Failed to save address.', 'error');
   }
 }
 
@@ -1750,6 +1842,9 @@ window.openBreakEntry = function(breakId, breakName, price, breakType, sport) {
 // EXPOSE FUNCTIONS TO GLOBAL SCOPE
 // ─────────────────────────────────────────
 window.loadBreaks = loadBreaks;
+window.loadAccountAddress = loadAccountAddress;
+window.toggleAddressEdit = toggleAddressEdit;
+window.saveAddress = saveAddress;
 window.renderBreaks = renderBreaks;
 window.submitSignup = submitSignup;
 window.submitSignin = submitSignin;
