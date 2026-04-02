@@ -263,8 +263,8 @@ async function loadBreaks() {
     breaks.hsa = liveBreaks.hsa;
     breaks.ab = liveBreaks.ab;
 
-    // Always re-render if breaks page is visible
-    renderBreaks();
+    // Re-render breaks
+    if (typeof renderBreaks === 'function') renderBreaks();
   } catch (err) {
     console.log('Could not load live breaks, using defaults.');
   }
@@ -408,7 +408,12 @@ var _originalShowPage = window.showPage;
 window.showPage = function (id) {
   if (_originalShowPage) _originalShowPage(id);
   if (id === 'account') renderAccountPage();
-  if (id === 'breaks') loadBreaks();
+  if (id === 'breaks') {
+    // Show loading state first
+    var container = document.getElementById('breaks-content');
+    if (container) container.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--muted);font-size:13px;letter-spacing:3px;text-transform:uppercase;">Loading breaks...</div>';
+    loadBreaks();
+  }
 };
 
 // ─────────────────────────────────────────
