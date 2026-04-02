@@ -260,11 +260,10 @@ async function loadBreaks() {
     });
 
     // Update the global breaks object with live data
-    breaks.hsa = liveBreaks.hsa;
-    breaks.ab = liveBreaks.ab;
+    window.breaks = { hsa: liveBreaks.hsa, ab: liveBreaks.ab };
 
     // Re-render breaks
-    if (typeof renderBreaks === 'function') renderBreaks();
+    if (typeof window.renderBreaks === 'function') window.renderBreaks();
   } catch (err) {
     console.log('Could not load live breaks, using defaults.');
   }
