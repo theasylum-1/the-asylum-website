@@ -1604,9 +1604,10 @@ async function openBreakSlotPicker(breakId, breakName, price, breakType, sport) 
     // Subtitle
     var sub = document.createElement('p');
     sub.style.cssText = 'font-size:13px;color:#888;margin-bottom:1rem;';
-    sub.textContent = isEnergy ? 'Select energy types — $' + price + ' per slot' :
-                      isRandom ? 'Random teams assigned after sellout — $' + price + ' per spot' :
-                      'Select teams — $' + price + ' per slot';
+    var priceDisplay = (price + '').replace('$', '');
+    sub.textContent = isEnergy ? 'Select energy types — $' + priceDisplay + ' per slot' :
+                      isRandom ? 'Random teams assigned after sellout — $' + priceDisplay + ' per spot' :
+                      'Select teams — prices shown per team';
     box.appendChild(sub);
 
     // Available count
