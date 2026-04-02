@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard — The Asylum</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --black:#0a0a0a;--deep:#111;--surface:#1a1a1a;--card:#1f1f1f;--border:#2a2a2a;--red:#c0392b;--red-bright:#e74c3c;--text:#e8e0d8;--muted:#888;--green:#4caf50;--blue:#5b9cf6;--orange:#ff9800; }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--black);color:var(--text);font-family:'Barlow',sans-serif;font-size:15px;line-height:1.6;min-height:100vh;}
+  header{background:var(--deep);border-bottom:2px solid var(--red);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;}
+  header h1{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:4px;}
+  header span{color:var(--red-bright);}
+  .lock-screen{max-width:400px;margin:8rem auto;padding:2.5rem;background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--red);text-align:center;}
+  .lock-screen h2{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:4px;margin-bottom:0.5rem;}
+  .lock-screen p{color:var(--muted);font-size:13px;margin-bottom:1.5rem;letter-spacing:1px;}
+  .dashboard{display:none;} .dashboard.visible{display:block;}
+  .tabs{background:var(--deep);border-bottom:1px solid var(--border);display:flex;padding:0 2rem;}
+  .tab{padding:1rem 1.5rem;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:color 0.2s,border-color 0.2s;}
+  .tab:hover{color:var(--text);}
+  .tab.active{color:var(--red-bright);border-bottom-color:var(--red-bright);}
+  .tab-content{display:none;padding:2rem;max-width:1200px;margin:0 auto;}
+  .tab-content.active{display:block;}
+  .section-label{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:5px;text-transform:uppercase;color:var(--red-bright);margin-bottom:1rem;padding-bottom:0.5rem;border-bottom:1px solid var(--border);}
+  .card{background:var(--card);border:1px solid var(--border);padding:1.5rem;margin-bottom:1.5rem;}
+  .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1px;background:var(--border);margin-bottom:1.5rem;}
+  .stat{background:var(--card);padding:1rem;text-align:center;}
+  .stat-num{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:2px;}
+  .stat-num.red{color:var(--red-bright);} .stat-num.green{color:var(--green);} .stat-num.blue{color:var(--blue);} .stat-num.orange{color:var(--orange);}
+  .stat-label{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);}
+  .form-grid{display:grid;gap:1rem;margin-bottom:1rem;}
+  .form-grid.two{grid-template-columns:1fr 1fr;}
+  .form-grid.three{grid-template-columns:1fr 1fr 1fr;}
+  .form-grid.four{grid-template-columns:1fr 1fr 1fr 1fr;}
+  .form-group label{display:block;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+  .form-group input,.form-group select,.form-group textarea{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:'Barlow',sans-serif;font-size:14px;outline:none;}
+  .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--red);}
+  .form-group select option{background:var(--card);}
+  .btn-primary{background:var(--red);color:#fff;border:none;padding:10px 24px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:3px;text-transform:uppercase;cursor:pointer;transition:background 0.2s;}
+  .btn-primary:hover{background:var(--red-bright);}
+  .btn-outline{background:transparent;color:var(--text);border:1px solid var(--border);padding:8px 18px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:border-color 0.2s,color 0.2s;}
+  .btn-outline:hover{border-color:var(--red);color:var(--red-bright);}
+  .btn-sm{padding:5px 12px;font-size:11px;letter-spacing:1px;}
+  .btn-danger{background:transparent;color:var(--red-bright);border:1px solid #4a1a1a;padding:5px 12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;}
+  .btn-danger:hover{background:#2a0a0a;}
+  .btn-success{background:transparent;color:var(--green);border:1px solid #2d4a2d;padding:5px 12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;}
+  .btn-success:hover{background:#1a2a1a;}
+  table{width:100%;border-collapse:collapse;}
+  th{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);text-align:left;padding:0.75rem 1rem;border-bottom:1px solid var(--border);background:var(--surface);}
+  td{padding:0.75rem 1rem;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  tr:hover td{background:var(--surface);}
+  .badge{display:inline-block;padding:3px 10px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;}
+  .badge.active{background:#1a2a1a;color:var(--green);border:1px solid #2d4a2d;}
+  .badge.inactive{background:#2a0a0a;color:var(--red-bright);border:1px solid #4a1a1a;}
+  .badge.hsa{background:#1a1a2a;color:var(--blue);border:1px solid #2d2d4a;}
+  .badge.ab{background:#2a1a0a;color:var(--orange);border:1px solid #4a2d0a;}
+  .badge.instock{background:#1a2a1a;color:var(--green);border:1px solid #2d4a2d;}
+  .badge.outstock{background:#2a0a0a;color:var(--red-bright);border:1px solid #4a1a1a;}
+  .inline-edit input,.inline-edit select{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:4px 8px;font-family:'Barlow',sans-serif;font-size:12px;outline:none;width:100%;}
+  .inline-edit input:focus,.inline-edit select:focus{border-color:var(--red);}
+  .search-row{display:flex;gap:1rem;margin-bottom:1rem;align-items:center;}
+  .search-row input{flex:1;background:var(--card);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:'Barlow',sans-serif;font-size:14px;outline:none;}
+  .search-row input:focus{border-color:var(--red);}
+  .filter-row{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;}
+  .filter-btn{padding:5px 14px;background:var(--card);border:1px solid var(--border);color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;}
+  .filter-btn.active{border-color:var(--red);color:var(--red-bright);}
+  .image-preview{width:60px;height:80px;object-fit:cover;border:1px solid var(--border);background:var(--surface);}
+  .image-placeholder{width:60px;height:80px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;color:#444;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;}
+  .upload-area{border:2px dashed var(--border);padding:1.5rem;text-align:center;cursor:pointer;transition:border-color 0.2s;}
+  .upload-area:hover{border-color:var(--red);}
+  .upload-area p{font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+  .edit-modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:200;align-items:center;justify-content:center;}
+  .edit-modal-overlay.open{display:flex;}
+  .edit-modal{background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--red);padding:2rem;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;position:relative;}
+  .edit-modal h3{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:3px;margin-bottom:1.5rem;}
+  .modal-close-btn{position:absolute;top:1rem;right:1rem;background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;}
+  input[type=password]{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:12px 16px;font-family:'Barlow',sans-serif;font-size:15px;outline:none;margin-bottom:1rem;}
+  input[type=password]:focus{border-color:var(--red);}
+  .toast{position:fixed;bottom:2rem;right:2rem;padding:1rem 1.5rem;font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:1px;z-index:9999;max-width:320px;line-height:1.4;}
+  .toast.success{background:#1a2a1a;border:1px solid var(--green);color:var(--green);}
+  .toast.error{background:#2a0a0a;border:1px solid var(--red-bright);color:var(--red-bright);}
+  .toast.info{background:#1a1a2a;border:1px solid var(--blue);color:var(--blue);}
+  .actions-col{display:flex;gap:6px;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>THE <span>ASYLUM</span> — Admin</h1>
+  <div style="display:flex;gap:1rem;align-items:center;">
+    <span id="header-info" style="font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;"></span>
+    <button class="btn-outline btn-sm" onclick="lockAdmin()">Lock</button>
+  </div>
+</header>
+
+<!-- LOCK SCREEN -->
+<div id="lock-screen">
+  <div class="lock-screen">
+    <h2>Admin Access</h2>
+    <p>The Asylum management dashboard</p>
+    <input type="password" id="admin-key-input" placeholder="Enter admin key..." onkeydown="if(event.key==='Enter')unlock()">
+    <button class="btn-primary" style="width:100%;padding:14px;" onclick="unlock()">Unlock Dashboard</button>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="dashboard" id="dashboard">
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('breaks', this)">Breaks</div>
+    <div class="tab" onclick="switchTab('shop', this)">Shop</div>
+    <div class="tab" onclick="switchTab('psa', this)">PSA Submissions</div>
+  </div>
+
+  <!-- BREAKS TAB -->
+  <div class="tab-content active" id="tab-breaks">
+    <div class="stats-row" id="breaks-stats">
+      <div class="stat"><div class="stat-num blue" id="bs-total">0</div><div class="stat-label">Total</div></div>
+      <div class="stat"><div class="stat-num green" id="bs-active">0</div><div class="stat-label">Active</div></div>
+      <div class="stat"><div class="stat-num orange" id="bs-hsa">0</div><div class="stat-label">HSA</div></div>
+      <div class="stat"><div class="stat-num red" id="bs-ab">0</div><div class="stat-label">Asylum Breaks</div></div>
+    </div>
+
+    <!-- ADD BREAK -->
+    <div class="card">
+      <div class="section-label">Add New Break</div>
+      <div class="form-grid three">
+        <div class="form-group"><label>Break Name</label><input type="text" id="b-name" placeholder="e.g. Prismatic Evolutions Case Break"></div>
+        <div class="form-group"><label>Date & Time</label><input type="text" id="b-date" placeholder="e.g. Sat Apr 5 · 8PM EST"></div>
+        <div class="form-group"><label>Brand</label>
+          <select id="b-brand"><option value="hsa">High St Asylum (TCG)</option><option value="ab">Asylum Breaks (Sports)</option></select>
+        </div>
+      </div>
+      <div class="form-grid three">
+        <div class="form-group"><label>Price Per Spot ($)</label><input type="number" id="b-price" placeholder="25"></div>
+        <div class="form-group"><label>Total Spots</label><input type="number" id="b-spots" placeholder="30"></div>
+        <div class="form-group"><label>Spots Filled</label><input type="number" id="b-filled" placeholder="0" value="0"></div>
+      </div>
+      <button class="btn-primary" onclick="addBreak()">+ Add Break</button>
+    </div>
+
+    <!-- BREAKS TABLE -->
+    <div class="card">
+      <div class="section-label">All Breaks</div>
+      <div class="search-row">
+        <input type="text" id="breaks-search" placeholder="Search breaks..." oninput="filterBreaks()">
+        <button class="btn-outline btn-sm" onclick="loadBreaks()">Refresh</button>
+      </div>
+      <div class="filter-row">
+        <button class="filter-btn active" onclick="setBreakFilter('all',this)">All</button>
+        <button class="filter-btn" onclick="setBreakFilter('hsa',this)">HSA</button>
+        <button class="filter-btn" onclick="setBreakFilter('ab',this)">Asylum Breaks</button>
+        <button class="filter-btn" onclick="setBreakFilter('active',this)">Active</button>
+        <button class="filter-btn" onclick="setBreakFilter('inactive',this)">Inactive</button>
+      </div>
+      <div id="breaks-table-wrap"><p style="color:var(--muted);font-size:14px;">Loading...</p></div>
+    </div>
+  </div>
+
+  <!-- SHOP TAB -->
+  <div class="tab-content" id="tab-shop">
+    <div class="stats-row" id="shop-stats">
+      <div class="stat"><div class="stat-num blue" id="ss-total">0</div><div class="stat-label">Total Items</div></div>
+      <div class="stat"><div class="stat-num green" id="ss-instock">0</div><div class="stat-label">In Stock</div></div>
+      <div class="stat"><div class="stat-num red" id="ss-outstock">0</div><div class="stat-label">Out of Stock</div></div>
+    </div>
+
+    <!-- ADD ITEM -->
+    <div class="card">
+      <div class="section-label">Add New Shop Item</div>
+      <div class="form-grid two">
+        <div class="form-group"><label>Item Title</label><input type="text" id="s-title" placeholder="e.g. Charizard ex — 151"></div>
+        <div class="form-group"><label>Category</label>
+          <select id="s-category">
+            <option value="Pokemon TCG">Pokémon TCG</option>
+            <option value="One Piece TCG">One Piece TCG</option>
+            <option value="Sports Cards">Sports Cards</option>
+            <option value="Sealed Product">Sealed Product</option>
+            <option value="Graded Cards">Graded Cards</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid three">
+        <div class="form-group"><label>Condition</label><input type="text" id="s-condition" placeholder="e.g. NM/M, PSA 10"></div>
+        <div class="form-group"><label>Price ($)</label><input type="number" id="s-price" placeholder="49.99" step="0.01"></div>
+        <div class="form-group"><label>In Stock</label>
+          <select id="s-instock"><option value="true">Yes — In Stock</option><option value="false">No — Out of Stock</option></select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:1rem;">
+        <label>Photo</label>
+        <div class="upload-area" onclick="document.getElementById('s-image-input').click()">
+          <p>Click to upload image</p>
+          <p style="font-size:11px;margin-top:4px;">JPG or PNG — max 5MB</p>
+          <img id="s-image-preview" style="max-height:120px;margin-top:1rem;display:none;">
+        </div>
+        <input type="file" id="s-image-input" accept="image/*" style="display:none;" onchange="previewImage(this)">
+      </div>
+      <button class="btn-primary" onclick="addShopItem()">+ Add Item</button>
+    </div>
+
+    <!-- SHOP TABLE -->
+    <div class="card">
+      <div class="section-label">All Shop Items</div>
+      <div class="search-row">
+        <input type="text" id="shop-search" placeholder="Search items..." oninput="filterShop()">
+        <button class="btn-outline btn-sm" onclick="loadShop()">Refresh</button>
+      </div>
+      <div class="filter-row">
+        <button class="filter-btn active" onclick="setShopFilter('all',this)">All</button>
+        <button class="filter-btn" onclick="setShopFilter('instock',this)">In Stock</button>
+        <button class="filter-btn" onclick="setShopFilter('outstock',this)">Out of Stock</button>
+      </div>
+      <div id="shop-table-wrap"><p style="color:var(--muted);font-size:14px;">Loading...</p></div>
+    </div>
+  </div>
+
+  <!-- PSA TAB -->
+  <div class="tab-content" id="tab-psa">
+    <div class="stats-row" id="psa-stats">
+      <div class="stat"><div class="stat-num blue" id="ps-total">0</div><div class="stat-label">Total</div></div>
+      <div class="stat"><div class="stat-num green" id="ps-received">0</div><div class="stat-label">Received</div></div>
+      <div class="stat"><div class="stat-num blue" id="ps-grading">0</div><div class="stat-label">Grading</div></div>
+      <div class="stat"><div class="stat-num orange" id="ps-shipped">0</div><div class="stat-label">Shipped</div></div>
+      <div class="stat"><div class="stat-num red" id="ps-complete">0</div><div class="stat-label">Complete</div></div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Add New Submission</div>
+      <div class="form-grid three">
+        <div class="form-group"><label>Card Name</label><input type="text" id="p-card" placeholder="e.g. Charizard Base Set Holo"></div>
+        <div class="form-group"><label>Submission Ref / ID</label><input type="text" id="p-ref" placeholder="e.g. PSA-2501"></div>
+        <div class="form-group"><label>Date Submitted</label><input type="date" id="p-date"></div>
+      </div>
+      <div class="form-grid three">
+        <div class="form-group">
+          <label>Customer Email</label>
+          <div style="display:flex;gap:8px;">
+            <input type="email" id="p-email" placeholder="customer@email.com" style="flex:1;">
+            <button class="btn-outline btn-sm" onclick="lookupCustomer()" style="white-space:nowrap;">Look Up</button>
+          </div>
+          <div id="p-lookup-result" style="font-size:12px;margin-top:6px;color:var(--muted);"></div>
+          <input type="hidden" id="p-user-id">
+        </div>
+        <div class="form-group"><label>Status</label>
+          <select id="p-status">
+            <option value="received">Received</option>
+            <option value="grading">Grading</option>
+            <option value="shipped">Shipped</option>
+            <option value="complete">Complete</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Grade</label><input type="text" id="p-grade" placeholder="e.g. PSA 10"></div>
+      </div>
+      <button class="btn-primary" onclick="addPSA()">+ Add Submission</button>
+    </div>
+
+    <div class="card">
+      <div class="section-label">All Submissions</div>
+      <div class="search-row">
+        <input type="text" id="psa-search" placeholder="Search by card, ref, or notes..." oninput="filterPSA()">
+        <button class="btn-outline btn-sm" onclick="loadPSA()">Refresh</button>
+      </div>
+      <div class="filter-row">
+        <button class="filter-btn active" onclick="setPSAFilter('all',this)">All</button>
+        <button class="filter-btn" onclick="setPSAFilter('received',this)">Received</button>
+        <button class="filter-btn" onclick="setPSAFilter('grading',this)">Grading</button>
+        <button class="filter-btn" onclick="setPSAFilter('shipped',this)">Shipped</button>
+        <button class="filter-btn" onclick="setPSAFilter('complete',this)">Complete</button>
+      </div>
+      <div id="psa-table-wrap"><p style="color:var(--muted);font-size:14px;">Loading...</p></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- EDIT MODALS -->
+<div class="edit-modal-overlay" id="edit-break-modal">
+  <div class="edit-modal">
+    <button class="modal-close-btn" onclick="closeEditModal('break')">&#215;</button>
+    <h3>Edit Break</h3>
+    <input type="hidden" id="edit-break-id">
+    <div class="form-grid two">
+      <div class="form-group"><label>Break Name</label><input type="text" id="edit-b-name"></div>
+      <div class="form-group"><label>Date & Time</label><input type="text" id="edit-b-date"></div>
+    </div>
+    <div class="form-grid three">
+      <div class="form-group"><label>Price ($)</label><input type="number" id="edit-b-price"></div>
+      <div class="form-group"><label>Total Spots</label><input type="number" id="edit-b-spots"></div>
+      <div class="form-group"><label>Spots Filled</label><input type="number" id="edit-b-filled"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:1rem;"><label>Status</label>
+      <select id="edit-b-active"><option value="true">Active</option><option value="false">Inactive</option></select>
+    </div>
+    <button class="btn-primary" style="width:100%;" onclick="saveBreakEdit()">Save Changes</button>
+  </div>
+</div>
+
+<div class="edit-modal-overlay" id="edit-shop-modal">
+  <div class="edit-modal">
+    <button class="modal-close-btn" onclick="closeEditModal('shop')">&#215;</button>
+    <h3>Edit Shop Item</h3>
+    <input type="hidden" id="edit-shop-id">
+    <div class="form-grid two">
+      <div class="form-group"><label>Title</label><input type="text" id="edit-s-title"></div>
+      <div class="form-group"><label>Category</label>
+        <select id="edit-s-category">
+          <option value="Pokemon TCG">Pokémon TCG</option><option value="One Piece TCG">One Piece TCG</option>
+          <option value="Sports Cards">Sports Cards</option><option value="Sealed Product">Sealed Product</option>
+          <option value="Graded Cards">Graded Cards</option><option value="Other">Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid three">
+      <div class="form-group"><label>Condition</label><input type="text" id="edit-s-condition"></div>
+      <div class="form-group"><label>Price ($)</label><input type="number" id="edit-s-price" step="0.01"></div>
+      <div class="form-group"><label>Stock</label>
+        <select id="edit-s-instock"><option value="true">In Stock</option><option value="false">Out of Stock</option></select>
+      </div>
+    </div>
+    <button class="btn-primary" style="width:100%;" onclick="saveShopEdit()">Save Changes</button>
+  </div>
+</div>
+
+<script>
+var ADMIN_KEY = '';
+var allBreaks = [], allShop = [], allPSA = [];
+var breakFilter = 'all', shopFilter = 'all', psaFilter = 'all';
+
+// ── AUTH ──
+function unlock() {
+  var key = document.getElementById('admin-key-input').value.trim();
+  if (!key) { showToast('Enter your admin key.', 'error'); return; }
+  ADMIN_KEY = key;
+  Promise.all([loadBreaks(), loadShop(), loadPSA()]).then(function() {
+    if (ADMIN_KEY) {
+      document.getElementById('lock-screen').style.display = 'none';
+      document.getElementById('dashboard').classList.add('visible');
+    }
+  });
+}
+
+function lockAdmin() {
+  ADMIN_KEY = '';
+  document.getElementById('dashboard').classList.remove('visible');
+  document.getElementById('lock-screen').style.display = 'block';
+  document.getElementById('admin-key-input').value = '';
+}
+
+// ── TABS ──
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+  document.querySelectorAll('.tab-content').forEach(function(t){t.classList.remove('active');});
+  el.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ── BREAKS ──
+async function loadBreaks() {
+  try {
+    var res = await fetch('/api/breaks/admin/all?admin_key=' + encodeURIComponent(ADMIN_KEY));
+    var data = await res.json();
+    if (res.status === 403) { showToast('Wrong admin key.', 'error'); ADMIN_KEY = ''; return; }
+    allBreaks = data;
+    updateBreakStats(data);
+    renderBreaksTable(data);
+  } catch(e) { showToast('Failed to load breaks.', 'error'); }
+}
+
+function updateBreakStats(data) {
+  document.getElementById('bs-total').textContent = data.length;
+  document.getElementById('bs-active').textContent = data.filter(function(b){return b.is_active;}).length;
+  document.getElementById('bs-hsa').textContent = data.filter(function(b){return b.brand==='hsa';}).length;
+  document.getElementById('bs-ab').textContent = data.filter(function(b){return b.brand==='ab';}).length;
+}
+
+function setBreakFilter(f, el) {
+  breakFilter = f;
+  document.querySelectorAll('#tab-breaks .filter-btn').forEach(function(b){b.classList.remove('active');});
+  el.classList.add('active');
+  filterBreaks();
+}
+
+function filterBreaks() {
+  var search = document.getElementById('breaks-search').value.toLowerCase();
+  var filtered = allBreaks.filter(function(b) {
+    var mf = breakFilter==='all' || (breakFilter==='hsa'&&b.brand==='hsa') || (breakFilter==='ab'&&b.brand==='ab') || (breakFilter==='active'&&b.is_active) || (breakFilter==='inactive'&&!b.is_active);
+    var ms = !search || b.name.toLowerCase().includes(search) || b.break_date.toLowerCase().includes(search);
+    return mf && ms;
+  });
+  renderBreaksTable(filtered);
+}
+
+function renderBreaksTable(data) {
+  var wrap = document.getElementById('breaks-table-wrap');
+  if (!data.length) { wrap.innerHTML = '<p style="color:var(--muted);font-size:14px;padding:1rem 0;">No breaks found.</p>'; return; }
+  var html = '<table><thead><tr><th>Name</th><th>Brand</th><th>Date</th><th>Price</th><th>Spots</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+  data.forEach(function(b) {
+    var avail = b.total_spots - b.filled_spots;
+    html += '<tr>';
+    html += '<td style="max-width:200px;">' + b.name + '</td>';
+    html += '<td><span class="badge ' + b.brand + '">' + (b.brand==='hsa'?'HSA':'AB') + '</span></td>';
+    html += '<td style="font-size:12px;">' + b.break_date + '</td>';
+    html += '<td>$' + b.price + '</td>';
+    html += '<td>' + b.filled_spots + '/' + b.total_spots + ' <span style="color:var(--muted);font-size:11px;">(' + avail + ' left)</span></td>';
+    html += '<td><span class="badge ' + (b.is_active?'active':'inactive') + '">' + (b.is_active?'Active':'Inactive') + '</span></td>';
+    html += '<td><div class="actions-col">';
+    html += '<button class="btn-outline btn-sm" onclick="openBreakEdit(\'' + b.id + '\')">Edit</button>';
+    if (b.is_active) {
+      html += '<button class="btn-sm" style="background:transparent;color:var(--orange);border:1px solid #4a2d0a;padding:5px 12px;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;" onclick="toggleBreakStatus(\'' + b.id + '\', false)">Sell Out</button>';
+    } else {
+      html += '<button class="btn-success btn-sm" onclick="toggleBreakStatus(\'' + b.id + '\', true)">Reactivate</button>';
+    }
+    html += '<button class="btn-danger btn-sm" onclick="deleteBreak(\'' + b.id + '\')">Delete</button>';
+    html += '</div></td></tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function openBreakEdit(id) {
+  var b = allBreaks.find(function(x){return x.id===id;});
+  if (!b) return;
+  document.getElementById('edit-break-id').value = b.id;
+  document.getElementById('edit-b-name').value = b.name;
+  document.getElementById('edit-b-date').value = b.break_date;
+  document.getElementById('edit-b-price').value = b.price;
+  document.getElementById('edit-b-spots').value = b.total_spots;
+  document.getElementById('edit-b-filled').value = b.filled_spots;
+  document.getElementById('edit-b-active').value = b.is_active ? 'true' : 'false';
+  document.getElementById('edit-break-modal').classList.add('open');
+}
+
+async function saveBreakEdit() {
+  var id = document.getElementById('edit-break-id').value;
+  var body = {
+    id, admin_key: ADMIN_KEY,
+    name: document.getElementById('edit-b-name').value,
+    break_date: document.getElementById('edit-b-date').value,
+    price: parseFloat(document.getElementById('edit-b-price').value),
+    total_spots: parseInt(document.getElementById('edit-b-spots').value),
+    filled_spots: parseInt(document.getElementById('edit-b-filled').value),
+    is_active: document.getElementById('edit-b-active').value === 'true'
+  };
+  try {
+    var res = await fetch('/api/breaks/admin/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    var data = await res.json();
+    if (!res.ok) { showToast(data.error||'Update failed.', 'error'); return; }
+    showToast('Break updated!', 'success');
+    closeEditModal('break');
+    loadBreaks();
+  } catch(e) { showToast('Update failed.', 'error'); }
+}
+
+async function addBreak() {
+  var name = document.getElementById('b-name').value.trim();
+  var date = document.getElementById('b-date').value.trim();
+  var brand = document.getElementById('b-brand').value;
+  var price = parseFloat(document.getElementById('b-price').value);
+  var spots = parseInt(document.getElementById('b-spots').value);
+  var filled = parseInt(document.getElementById('b-filled').value) || 0;
+  if (!name||!date||!price||!spots) { showToast('Please fill all required fields.', 'error'); return; }
+  try {
+    var res = await fetch('/api/breaks', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({brand,name,break_date:date,price,total_spots:spots,admin_key:ADMIN_KEY}) });
+    var data = await res.json();
+    if (!res.ok) { showToast(data.error||'Failed.', 'error'); return; }
+    showToast('Break added!', 'success');
+    ['b-name','b-date','b-price','b-spots'].forEach(function(id){document.getElementById(id).value='';});
+    document.getElementById('b-filled').value = '0';
+    loadBreaks();
+  } catch(e) { showToast('Failed to add break.', 'error'); }
+}
+
+async function toggleBreakStatus(id, active) {
+  try {
+    var res = await fetch('/api/breaks/admin/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id, is_active:active, filled_spots: active ? 0 : 999, admin_key:ADMIN_KEY}) });
+    var data = await res.json();
+    if (!res.ok) { showToast(data.error||'Failed.', 'error'); return; }
+    showToast(active ? 'Break reactivated!' : 'Break marked as sold out!', 'success');
+    loadBreaks();
+  } catch(e) { showToast('Failed.', 'error'); }
+}
+
+async function deleteBreak(id) {
+  if (!confirm('Delete this break? This cannot be undone.')) return;
+  try {
+    var res = await fetch('/api/breaks/' + id, { method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({admin_key:ADMIN_KEY}) });
+    var data = await res.json();
+    if (!res.ok) { showToast(data.error||'Delete failed.', 'error'); return; }
+    showToast('Break deleted.', 'success');
+    loadBreaks();
+  } catch(e) { showToast('Delete failed.', 'error'); }
+}
+
+// ── SHOP ──
+async function loadShop() {
+  try {
+    var res = await fetch('/api/shop/admin/all?admin_key=' + encodeURIComponent(ADMIN_KEY));
+    var data = await res.json();
+    if (res.status === 403) return;
+    allShop = data;
+    updateShopStats(data);
+    renderShopTable(data);
+  } catch(e) { showToast('Failed to load shop.', 'error'); }
+}
+
+function updateShopStats(data) {
+  document.getElementById('ss-total').textContent = data.length;
+  document.getElementById('ss-instock').textContent = data.filter(function(i){return i.in_stock;}).length;
+  document.getElementById('ss-outstock').textContent = data.filter(function(i){return !i.in_stock;}).length;
+}
+
+function setShopFilter(f, el) {
+  shopFilter = f;
+  document.querySelectorAll('#tab-shop .filter-btn').forEach(function(b){b.classList.remove('active');});
+  el.classList.add('active');
+  filterShop();
+}
+
+function filterShop() {
+  var search = document.getElementById('shop-search').value.toLowerCase();
+  var filtered = allShop.filter(function(i) {
+    var mf = shopFilter==='all' || (shopFilter==='instock'&&i.in_stock) || (shopFilter==='outstock'&&!i.in_stock);
+    var ms = !search || i.title.toLowerCase().includes(search) || (i.category&&i.category.toLowerCase().includes(search));
+    return mf && ms;
+  });
+  renderShopTable(filtered);
+}
+
+function renderShopTable(data) {
+  var wrap = document.getElementById('shop-table-wrap');
+  if (!data.length) { wrap.innerHTML = '<p style="color:var(--muted);font-size:14px;padding:1rem 0;">No items found.</p>'; return; }
+  var html = '<table><thead><tr><th>Image</th><th>Title</th><th>Category</th><th>Condition</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead><tbody>';
+  data.forEach(function(i) {
+    html += '<tr>';
+    html += '<td>' + (i.image_url ? '<img src="' + i.image_url + '" class="image-preview">' : '<div class="image-placeholder">No Image</div>') + '</td>';
+    html += '<td style="max-width:200px;font-weight:500;">' + i.title + '</td>';
+    html += '<td style="font-size:12px;color:var(--muted);">' + (i.category||'—') + '</td>';
+    html += '<td style="font-size:12px;">' + (i.condition||'—') + '</td>';
+    html += '<td style="font-weight:500;">$' + parseFloat(i.price).toFixed(2) + '</td>';
+    html += '<td><span class="badge ' + (i.in_stock?'instock':'outstock') + '">' + (i.in_stock?'In Stock':'Out of Stock') + '</span></td>';
+    html += '<td><div class="actions-col">';
+    html += '<button class="btn-outline btn-sm" onclick="openShopEdit(\'' + i.id + '\')">Edit</button>';
+    html += '<button class="btn-sm" style="background:transparent;color:' + (i.in_stock?'var(--red-bright)':'var(--green)') + ';border:1px solid ' + (i.in_stock?'#4a1a1a':'#2d4a2d') + ';padding:5px 12px;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;" onclick="toggleStock(\'' + i.id + '\',' + !i.in_stock + ')">' + (i.in_stock?'Mark Out':'Mark In') + '</button>';
+    html += '<button class="btn-danger btn-sm" onclick="deleteShopItem(\'' + i.id + '\')">Delete</button>';
+    html += '</div></td></tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function openShopEdit(id) {
+  var i = allShop.find(function(x){return x.id===id;});
+  if (!i) return;
+  document.getElementById('edit-shop-id').value = i.id;
+  document.getElementById('edit-s-title').value = i.title;
+  document.getElementById('edit-s-category').value = i.category || 'Other';
+  document.getElementById('edit-s-condition').value = i.condition || '';
+  document.getElementById('edit-s-price').value = i.price;
+  document.getElementById('edit-s-instock').value = i.in_stock ? 'true' : 'false';
+  document.getElementById('edit-shop-modal').classList.add('open');
+}
+
+async function saveShopEdit() {
+  var id = document.getElementById('edit-shop-id').value;
+  var body = {
+    id, admin_key: ADMIN_KEY,
+    title: document.getElementById('edit-s-title').value,
+    category: document.getElementById('edit-s-category').value,
+    condition: document.getElementById('edit-s-condition').value,
+    price: parseFloat(document.getElementById('edit-s-price').value),
+    in_stock: document.getElementById('edit-s-instock').value === 'true'
+  };
+  try {
+    var res = await fetch('/api/shop/admin/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    var data = await res.json();
+    if (!res.ok) { showToast(data.error||'Update failed.', 'error'); return; }
+    showToast('Item updated!', 'success');
+    closeEditModal('shop');
+    loadShop();
+  } catch(e) { showToast('Update failed.', 'error'); }
+}
+
+async function addShopItem() {
+  var title = document.getElementById('s-title').value.trim();
+  var price = parseFloat(document.getElementById('s-price').value);
+  var category = document.getElementById('s-category').value;
+  var condition = document.getElementById('s-condition').value.trim();
+  var instock = document.getElementById('s-instock').value === 'true';
+  if (!title || !price) { showToast('Title and price required.', 'error'); return; }
+
+  var imageUrl = null;
+  var imgInput = document.getElementById('s-image-input');
+  if (imgInput.files[0]) {
+    showToast('Uploading image...', 'info');
+    imageUrl = await uploadImage(imgInput.files[0]);
+  }
+
+  try {
+    var res = await fetch('/api/shop/admin/add', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title, category, condition, price, image_url:imageUrl, in_stock:instock, admin_key:ADMIN_KEY}) });
+    var data = await res.json();
+    if (!res.ok) { showToast(data.error||'Failed.', 'error'); return; }
+    showToast('Item added!', 'success');
+    ['s-title','s-condition','s-price'].forEach(function(id){document.getElementById(id).value='';});
+    document.getElementById('s-image-preview').style.display = 'none';
+    imgInput.value = '';
+    loadShop();
+  } catch(e) { showToast('Failed to add item.', 'error'); }
+}
+
+async function uploadImage(file) {
+  return new Promise(function(resolve) {
+    var reader = new FileReader();
+    reader.onload = async function(e) {
+      try {
+        var res = await fetch('/api/shop/admin/upload-image', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({image_base64: e.target.result, filename: file.name, admin_key: ADMIN_KEY})
+        });
+        var data = await res.json();
+        resolve(res.ok ? data.url : null);
+      } catch(err) { resolve(null); }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function toggleStock(id, instock) {
+  try {
+    var res = await fetch('/api/shop/admin/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id, in_stock:instock, admin_key:ADMIN_KEY}) });
+    var data = await res.json();
+    if (!res.ok) { showToast(data.error||'Failed.', 'error'); return; }
+    showToast(instock ? 'Marked as in stock!' : 'Marked as out of stock!', 'success');
+    loadShop();
+  } catch(e) { showToast('Failed.', 'error'); }
+}
+
+async function deleteShopItem(id) {
+  if (!confirm('Delete this item? Cannot be undone.')) return;
+  try {
+    var res = await fetch('/api/shop/admin/delete/' + id, { method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({admin_key:ADMIN_KEY}) });
+    var data = await res.json();
+    if (!res.ok) { showToast(data.error||'Delete failed.', 'error'); return; }
+    showToast('Item deleted.', 'success');
+    loadShop();
+  } catch(e) { showToast('Delete failed.', 'error'); }
+}
+
+function previewImage(input) {
+  if (input.files[0]) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var img = document.getElementById('s-image-preview');
+      img.src = e.target.result;
+      img.style.display = 'block';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+// ── PSA ──
+async function loadPSA() {
+  try {
+    var res = await fetch('/api/psa/admin/all?admin_key=' + encodeURIComponent(ADMIN_KEY));
+    var data = await res.json();
+    if (res.status === 403) return;
+    allPSA = data;
+    updatePSAStats(data);
+    renderPSATable(data);
+  } catch(e) { showToast('Failed to load PSA.', 'error'); }
+}
+
+function updatePSAStats(data) {
+  document.getElementById('ps-total').textContent = data.length;
+  ['received','grading','shipped','complete'].forEach(function(s) {
+    document.getElementById('ps-' + s).textContent = data.filter(function(x){return x.status===s;}).length;
+  });
+}
+
+function setPSAFilter(f, el) {
+  psaFilter = f;
+  document.querySelectorAll('#tab-psa .filter-btn').forEach(function(b){b.classList.remove('active');});
+  el.classList.add('active');
+  filterPSA();
+}
+
+function filterPSA() {
+  var search = document.getElementById('psa-search').value.toLowerCase();
+  var filtered = allPSA.filter(function(s) {
+    var mf = psaFilter==='all' || s.status===psaFilter;
+    var ms = !search || s.card_name.toLowerCase().includes(search) || s.submission_ref.toLowerCase().includes(search) || (s.notes&&s.notes.toLowerCase().includes(search));
+    return mf && ms;
+  });
+  renderPSATable(filtered);
+}
+
+function renderPSATable(data) {
+  var wrap = document.getElementById('psa-table-wrap');
+  if (!data.length) { wrap.innerHTML = '<p style="color:var(--muted);font-size:14px;padding:1rem 0;">No submissions found.</p>'; return; }
+  var statusColors = {received:'#4caf50',grading:'#5b9cf6',shipped:'#ff9800',complete:'#e74c3c'};
+  var statusBgs = {received:'#1a2a1a',grading:'#1a1a2a',shipped:'#2a1a0a',complete:'#2a0a0a'};
+  var statusBorders = {received:'#2d4a2d',grading:'#2d2d4a',shipped:'#4a2d0a',complete:'#4a1a1a'};
+  var html = '<table><thead><tr><th>Card</th><th>Ref</th><th>Submitted</th><th>Status</th><th>Grade</th><th>Actions</th></tr></thead><tbody>';
+  data.forEach(function(s) {
+    html += '<tr>';
+    html += '<td style="max-width:180px;">' + s.card_name + '</td>';
+    html += '<td><code style="color:var(--red-bright);font-size:12px;">' + s.submission_ref + '</code></td>';
+    html += '<td style="font-size:12px;">' + (s.submitted_date||'—') + '</td>';
+    html += '<td><select style="background:' + statusBgs[s.status] + ';border:1px solid ' + statusBorders[s.status] + ';color:' + statusColors[s.status] + ';padding:4px 8px;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;outline:none;" onchange="updatePSAStatus(\'' + s.submission_ref + '\',this.value)">';
+    ['received','grading','shipped','complete'].forEach(function(st){html+='<option value="'+st+'"'+(s.status===st?' selected':'')+'>'+st.charAt(0).toUpperCase()+st.slice(1)+'</option>';});
+    html += '</select></td>';
+    html += '<td><input style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:4px 8px;font-family:\'Barlow\',sans-serif;font-size:12px;outline:none;width:70px;" type="text" value="' + (s.grade||'') + '" placeholder="—" onblur="updatePSAGrade(\'' + s.submission_ref + '\',this.value)"></td>';
+    html += '<td><button class="btn-danger btn-sm" onclick="deletePSA(\'' + s.submission_ref + '\')">Delete</button></td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+async function lookupCustomer() {
+  var email = document.getElementById('p-email').value.trim();
+  if (!email) { showToast('Enter a customer email first.', 'error'); return; }
+  var result = document.getElementById('p-lookup-result');
+  result.textContent = 'Looking up...';
+  try {
+    var res = await fetch('/api/admin/user-by-email?email=' + encodeURIComponent(email) + '&admin_key=' + encodeURIComponent(ADMIN_KEY));
+    var data = await res.json();
+    if (!data.found) {
+      result.style.color = 'var(--orange)';
+      result.textContent = '⚠ No account found. Submission will not be linked.';
+      document.getElementById('p-user-id').value = '';
+    } else {
+      result.style.color = 'var(--green)';
+      result.textContent = '✓ Found: ' + (data.name || data.email);
+      document.getElementById('p-user-id').value = data.user_id;
+    }
+  } catch(e) { result.textContent = 'Lookup failed.'; }
+}
+
+async function addPSA() {
+  var card = document.getElementById('p-card').value.trim();
+  var ref = document.getElementById('p-ref').value.trim();
+  var date = document.getElementById('p-date').value;
+  var status = document.getElementById('p-status').value;
+  var grade = document.getElementById('p-grade').value.trim();
+  var userId = document.getElementById('p-user-id').value;
+  if (!card||!ref) { showToast('Card name and submission ref required.', 'error'); return; }
+  try {
+    var res = await fetch('/api/psa/admin/add', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({submission_ref:ref,card_name:card,submitted_date:date||null,status,grade:grade||null,user_id:userId||null,admin_key:ADMIN_KEY}) });
+    var data = await res.json();
+    if (!res.ok) { showToast(data.error||'Failed.', 'error'); return; }
+    showToast('Submission added!', 'success');
+    ['p-card','p-ref','p-date','p-grade','p-email'].forEach(function(id){document.getElementById(id).value='';});
+    document.getElementById('p-user-id').value='';
+    document.getElementById('p-lookup-result').textContent='';
+    loadPSA();
+  } catch(e) { showToast('Failed.', 'error'); }
+}
+
+async function updatePSAStatus(ref, status) {
+  try {
+    var res = await fetch('/api/psa/admin/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({submission_ref:ref,status,admin_key:ADMIN_KEY}) });
+    if (res.ok) { showToast('Status updated!', 'success'); updatePSAStats(allPSA.map(function(s){if(s.submission_ref===ref)s.status=status;return s;})); }
+  } catch(e) {}
+}
+
+async function updatePSAGrade(ref, grade) {
+  try {
+    var s = allPSA.find(function(x){return x.submission_ref===ref;});
+    var res = await fetch('/api/psa/admin/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({submission_ref:ref,status:s?s.status:'complete',grade:grade||null,admin_key:ADMIN_KEY}) });
+    if (res.ok) showToast('Grade updated!', 'success');
+  } catch(e) {}
+}
+
+async function deletePSA(ref) {
+  if (!confirm('Delete ' + ref + '? Cannot be undone.')) return;
+  try {
+    var res = await fetch('/api/psa/admin/delete/' + encodeURIComponent(ref), { method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({admin_key:ADMIN_KEY}) });
+    if (res.ok) { showToast('Deleted.', 'success'); loadPSA(); }
+  } catch(e) {}
+}
+
+// ── MODALS ──
+function closeEditModal(type) { document.getElementById('edit-' + type + '-modal').classList.remove('open'); }
+
+// ── TOAST ──
+function showToast(msg, type) {
+  var el = document.getElementById('toast');
+  if (el) el.remove();
+  var t = document.createElement('div');
+  t.id = 'toast'; t.className = 'toast ' + type; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function(){if(t.parentElement)t.remove();}, 3500);
+}
+</script>
+</body>
+</html>

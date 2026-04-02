@@ -97,6 +97,135 @@ app.post('/api/auth/signin', async (req, res) => {
   }
 });
 
+
+// ─────────────────────────────────────────
+// BREAKS ADMIN — UPDATE
+// ─────────────────────────────────────────
+app.post('/api/breaks/admin/update', async (req, res) => {
+  const { id, name, break_date, price, total_spots, filled_spots, is_active, admin_key } = req.body;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  try {
+    const updates = {};
+    if (name !== undefined) updates.name = name;
+    if (break_date !== undefined) updates.break_date = break_date;
+    if (price !== undefined) updates.price = price;
+    if (total_spots !== undefined) updates.total_spots = total_spots;
+    if (filled_spots !== undefined) updates.filled_spots = filled_spots;
+    if (is_active !== undefined) updates.is_active = is_active;
+    const { data, error } = await getSupabase().from('breaks').update(updates).eq('id', id).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, break: data });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update break.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// BREAKS ADMIN — GET ALL (including inactive)
+// ─────────────────────────────────────────
+app.get('/api/breaks/admin/all', async (req, res) => {
+  const { admin_key } = req.query;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  try {
+    const { data, error } = await getSupabase().from('breaks').select('*').order('created_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load breaks.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// SHOP ADMIN — GET ALL
+// ─────────────────────────────────────────
+app.get('/api/shop/admin/all', async (req, res) => {
+  const { admin_key } = req.query;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  try {
+    const { data, error } = await getSupabase().from('shop_items').select('*').order('created_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load shop items.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// SHOP ADMIN — ADD ITEM
+// ─────────────────────────────────────────
+app.post('/api/shop/admin/add', async (req, res) => {
+  const { title, category, condition, price, image_url, in_stock, admin_key } = req.body;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  if (!title || !price) return res.status(400).json({ error: 'Title and price required.' });
+  try {
+    const { data, error } = await getSupabase().from('shop_items')
+      .insert({ title, category: category || null, condition: condition || null, price, image_url: image_url || null, in_stock: in_stock !== false })
+      .select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, item: data });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add item.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// SHOP ADMIN — UPDATE ITEM
+// ─────────────────────────────────────────
+app.post('/api/shop/admin/update', async (req, res) => {
+  const { id, title, category, condition, price, image_url, in_stock, admin_key } = req.body;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  try {
+    const updates = {};
+    if (title !== undefined) updates.title = title;
+    if (category !== undefined) updates.category = category;
+    if (condition !== undefined) updates.condition = condition;
+    if (price !== undefined) updates.price = price;
+    if (image_url !== undefined) updates.image_url = image_url;
+    if (in_stock !== undefined) updates.in_stock = in_stock;
+    const { data, error } = await getSupabase().from('shop_items').update(updates).eq('id', id).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, item: data });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update item.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// SHOP ADMIN — DELETE ITEM
+// ─────────────────────────────────────────
+app.delete('/api/shop/admin/delete/:id', async (req, res) => {
+  const { admin_key } = req.body;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  try {
+    const { error } = await getSupabase().from('shop_items').delete().eq('id', req.params.id);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete item.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// SHOP ADMIN — UPLOAD IMAGE (base64)
+// ─────────────────────────────────────────
+app.post('/api/shop/admin/upload-image', async (req, res) => {
+  const { image_base64, filename, admin_key } = req.body;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  if (!image_base64 || !filename) return res.status(400).json({ error: 'Image and filename required.' });
+  try {
+    const base64Data = image_base64.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    const { data, error } = await getSupabase().storage
+      .from('shop-images')
+      .upload('items/' + Date.now() + '-' + filename, buffer, { contentType: 'image/jpeg', upsert: true });
+    if (error) return res.status(500).json({ error: error.message });
+    const { data: urlData } = getSupabase().storage.from('shop-images').getPublicUrl(data.path);
+    res.json({ success: true, url: urlData.publicUrl });
+  } catch (err) {
+    res.status(500).json({ error: 'Image upload failed.' });
+  }
+});
+
 // ─────────────────────────────────────────
 // BREAKS — GET ALL (public)
 // ─────────────────────────────────────────
