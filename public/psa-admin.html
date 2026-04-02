@@ -319,7 +319,7 @@ async function addSubmission() {
   var date = document.getElementById('new-date').value;
   var status = document.getElementById('new-status').value;
   var grade = document.getElementById('new-grade').value.trim();
-  var notes = document.getElementById('new-customer').value.trim();
+  var notes = document.getElementById('new-notes') ? document.getElementById('new-notes').value.trim() : '';
 
   if (!cardName || !ref) { showToast('Card name and submission ref are required.', 'error'); return; }
 
