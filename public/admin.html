@@ -595,15 +595,12 @@ async function addBreak() {
   showToast('Adding break...', 'info');
 
   try {
-    // Create the break
-    var res = await fetch('/api/breaks', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({brand, name, break_date:date, price, total_spots:totalSpots, admin_key:ADMIN_KEY}) });
+    // Create the break with type and sport included
+    var res = await fetch('/api/breaks', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({brand, name, break_date:date, price, total_spots:totalSpots, break_type:breakType, sport:sport||null, admin_key:ADMIN_KEY}) });
     var data = await res.json();
     if (!res.ok) { showToast(data.error||'Failed.', 'error'); return; }
 
     var breakId = data.break.id;
-
-    // Update break_type and sport
-    await fetch('/api/breaks/admin/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:breakId, break_type:breakType, sport:sport||null, admin_key:ADMIN_KEY}) });
 
     // Setup slots
     var slotRes = await fetch('/api/breaks/' + breakId + '/slots/setup', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({slots, admin_key:ADMIN_KEY}) });

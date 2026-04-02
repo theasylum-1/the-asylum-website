@@ -346,8 +346,11 @@ app.post('/api/breaks', async (req, res) => {
     return res.status(403).json({ error: 'Unauthorized.' });
   }
   try {
+    const breakType = req.body.break_type || 'energy';
+    const sport = req.body.sport || null;
     const { data, error } = await getSupabase().from('breaks').insert({
-      brand, name, break_date, price, total_spots, filled_spots: 0, is_active: true
+      brand, name, break_date, price, total_spots, filled_spots: 0, is_active: true,
+      break_type: breakType, sport: sport
     }).select().single();
     if (error) return res.status(500).json({ error: error.message });
     res.json({ success: true, break: data });
