@@ -159,8 +159,8 @@ function renderAccountPage() {
     <div style="max-width:800px;margin:2rem auto;padding:0 2rem;">
       <div style="background:var(--card);border:1px solid var(--border);padding:1.5rem;margin-bottom:1.5rem;">
         <div class="section-label">Account Info</div>
-        <p style="font-size:15px;margin-bottom:0.5rem;"><strong style="color:var(--muted);font-family:'Barlow Condensed',sans-serif;letter-spacing:2px;font-size:12px;text-transform:uppercase;">Name</strong><br>${name}</p>
-        <p style="font-size:15px;margin-top:1rem;"><strong style="color:var(--muted);font-family:'Barlow Condensed',sans-serif;letter-spacing:2px;font-size:12px;text-transform:uppercase;">Email</strong><br>${email}</p>
+        <p style="font-size:15px;margin-bottom:0.5rem;"><strong style="color:var(--muted);font-family:sans-serif;letter-spacing:2px;font-size:12px;text-transform:uppercase;">Name</strong><br>${name}</p>
+        <p style="font-size:15px;margin-top:1rem;"><strong style="color:var(--muted);font-family:sans-serif;letter-spacing:2px;font-size:12px;text-transform:uppercase;">Email</strong><br>${email}</p>
       </div>
       <div style="background:var(--card);border:1px solid var(--border);padding:1.5rem;margin-bottom:1.5rem;">
         <div class="section-label">My PSA Submissions</div>
@@ -398,7 +398,7 @@ function showToast(message, type) {
 
   var toast = document.createElement('div');
   toast.id = 'asylum-toast';
-  toast.style.cssText = 'position:fixed;bottom:2rem;right:2rem;background:' + colors[type] + ';border:1px solid ' + borders[type] + ';color:#fff;padding:1rem 1.5rem;font-family:"Barlow Condensed",sans-serif;font-size:14px;letter-spacing:1px;z-index:9999;max-width:320px;line-height:1.4;';
+  toast.style.cssText = 'position:fixed;bottom:2rem;right:2rem;background:' + colors[type] + ';border:1px solid ' + borders[type] + ';color:#fff;padding:1rem 1.5rem;font-family:sans-serif;font-size:14px;letter-spacing:1px;z-index:9999;max-width:320px;line-height:1.4;';
   toast.textContent = message;
   document.body.appendChild(toast);
   setTimeout(function () { if (toast.parentElement) toast.remove(); }, 4000);
@@ -480,18 +480,18 @@ function showStripeForm(clientSecret, publishableKey, amount, itemName) {
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:400;display:flex;align-items:center;justify-content:center;';
   overlay.innerHTML = '<div style="background:#111;border:1px solid #2a2a2a;border-top:2px solid #e74c3c;padding:2.5rem;width:100%;max-width:440px;position:relative;">' +
     '<button onclick="document.getElementById(\'stripe-payment-overlay\').remove()" style="position:absolute;top:1rem;right:1rem;background:none;border:none;color:#888;font-size:24px;cursor:pointer;">&#215;</button>' +
-    '<h2 style="font-family:\'Bebas Neue\',sans-serif;font-size:32px;letter-spacing:3px;color:#e8e0d8;margin-bottom:0.25rem;">Secure Payment</h2>' +
-    '<p style="font-size:13px;color:#888;margin-bottom:1.5rem;font-family:\'Barlow Condensed\',sans-serif;letter-spacing:2px;text-transform:uppercase;">' + itemName + ' — $' + amount + '</p>' +
+    '<h2 style="font-family:sans-serif;font-weight:900;letter-spacing:2px;font-size:32px;letter-spacing:3px;color:#e8e0d8;margin-bottom:0.25rem;">Secure Payment</h2>' +
+    '<p style="font-size:13px;color:#888;margin-bottom:1.5rem;font-family:sans-serif;letter-spacing:2px;text-transform:uppercase;">' + itemName + ' — $' + amount + '</p>' +
     '<div id="stripe-card-element" style="background:#1f1f1f;border:1px solid #2a2a2a;padding:14px;margin-bottom:1rem;"></div>' +
     '<div id="stripe-error" style="color:#e74c3c;font-size:13px;margin-bottom:1rem;"></div>' +
-    '<button id="stripe-submit-btn" onclick="confirmStripePayment(\'' + clientSecret + '\')" style="width:100%;background:#c0392b;color:#fff;border:none;padding:14px;font-family:\'Barlow Condensed\',sans-serif;font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;cursor:pointer;">Pay $' + amount + '</button>' +
+    '<button id="stripe-submit-btn" onclick="confirmStripePayment(\'' + clientSecret + '\')" style="width:100%;background:#c0392b;color:#fff;border:none;padding:14px;font-family:sans-serif;font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;cursor:pointer;">Pay $' + amount + '</button>' +
     '</div>';
   document.body.appendChild(overlay);
 
   var stripe = window.Stripe(publishableKey);
   var elements = stripe.elements();
   var card = elements.create('card', {
-    style: { base: { color: '#e8e0d8', fontFamily: 'Barlow, sans-serif', fontSize: '15px', '::placeholder': { color: '#555' } }, invalid: { color: '#e74c3c' } }
+    style: { base: { color: '#e8e0d8', fontFamily: 'sans-serif', fontSize: '15px', '::placeholder': { color: '#555' } }, invalid: { color: '#e74c3c' } }
   });
   card.mount('#stripe-card-element');
   window._stripeCard = card;
@@ -578,7 +578,7 @@ async function openBreakSlotPicker(breakId, breakName, price, breakType, sport) 
   var overlay = document.createElement('div');
   overlay.id = 'slot-picker-overlay';
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:300;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:2rem;';
-  overlay.innerHTML = '<div style="color:var(--muted);font-family:'Barlow Condensed',sans-serif;letter-spacing:3px;text-transform:uppercase;font-size:13px;">Loading slots...</div>';
+  overlay.innerHTML = '<div style="color:var(--muted);font-family:sans-serif;letter-spacing:3px;text-transform:uppercase;font-size:13px;">Loading slots...</div>';
   document.body.appendChild(overlay);
 
   try {
@@ -598,22 +598,22 @@ async function openBreakSlotPicker(breakId, breakName, price, breakType, sport) 
 
     var html = '<div style="background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--red);padding:2rem;width:100%;max-width:700px;position:relative;">';
     html += '<button onclick="document.getElementById('slot-picker-overlay').remove()" style="position:absolute;top:1rem;right:1rem;background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;line-height:1;">&#215;</button>';
-    html += '<h2 style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:4px;color:var(--text);margin-bottom:0.25rem;">' + title + '</h2>';
-    html += '<p style="font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem;">' + breakName + '</p>';
-    if (sportLabel) html += '<span style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;padding:3px 10px;border:1px solid var(--border);color:var(--muted);display:inline-block;margin-bottom:1rem;">' + sportLabel + '</span>';
+    html += '<h2 style="font-family:sans-serif;font-weight:900;font-size:36px;letter-spacing:4px;color:var(--text);margin-bottom:0.25rem;">' + title + '</h2>';
+    html += '<p style="font-family:sans-serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem;">' + breakName + '</p>';
+    if (sportLabel) html += '<span style="font-family:sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;padding:3px 10px;border:1px solid var(--border);color:var(--muted);display:inline-block;margin-bottom:1rem;">' + sportLabel + '</span>';
     html += '<p style="font-size:13px;color:#888;margin-bottom:1.5rem;">' + subtitle + '</p>';
 
     var available = slots.filter(function(s){return !s.is_taken;}).length;
-    html += '<div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;">' + available + ' of ' + slots.length + ' slots available</div>';
+    html += '<div style="font-family:sans-serif;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;">' + available + ' of ' + slots.length + ' slots available</div>';
 
     if (isRandom) {
       // Random — just show spots grid
       html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;margin-bottom:1.5rem;">';
       slots.forEach(function(s) {
         if (s.is_taken) {
-          html += '<div style="background:#2a0a0a;border:1px solid #4a1a1a;padding:0.75rem;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:12px;color:var(--red-bright);letter-spacing:1px;">TAKEN</div>';
+          html += '<div style="background:#2a0a0a;border:1px solid #4a1a1a;padding:0.75rem;text-align:center;font-family:sans-serif;font-size:12px;color:var(--red-bright);letter-spacing:1px;">TAKEN</div>';
         } else {
-          html += '<div id="slot-' + s.id + '" onclick="toggleSlot('' + s.id + '','' + s.slot_name + '')" style="background:var(--card);border:1px solid var(--border);padding:0.75rem;text-align:center;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:1px;transition:background 0.15s;">' + s.slot_name + '</div>';
+          html += '<div id="slot-' + s.id + '" onclick="toggleSlot('' + s.id + '','' + s.slot_name + '')" style="background:var(--card);border:1px solid var(--border);padding:0.75rem;text-align:center;cursor:pointer;font-family:sans-serif;font-size:12px;letter-spacing:1px;transition:background 0.15s;">' + s.slot_name + '</div>';
         }
       });
       html += '</div>';
@@ -624,12 +624,12 @@ async function openBreakSlotPicker(breakId, breakName, price, breakType, sport) 
         if (s.is_taken) {
           html += '<div style="background:#1a1a1a;border:1px solid #2a2a2a;padding:1rem;text-align:center;opacity:0.4;">';
           html += '<div style="font-size:20px;margin-bottom:4px;">&#9711;</div>';
-          html += '<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;color:#555;">' + s.slot_name + '</div>';
-          html += '<div style="font-size:10px;color:#444;margin-top:4px;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;">TAKEN</div></div>';
+          html += '<div style="font-family:sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;color:#555;">' + s.slot_name + '</div>';
+          html += '<div style="font-size:10px;color:#444;margin-top:4px;font-family:sans-serif;letter-spacing:1px;">TAKEN</div></div>';
         } else {
           html += '<div id="slot-' + s.id + '" onclick="toggleSlot('' + s.id + '','' + s.slot_name + '')" style="background:var(--card);border:2px solid ' + color + '33;padding:1rem;text-align:center;cursor:pointer;transition:background 0.15s,border-color 0.15s;">';
           html += '<div style="width:32px;height:32px;border-radius:50%;background:' + color + ';margin:0 auto 8px;"></div>';
-          html += '<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;color:var(--text);">' + s.slot_name + '</div></div>';
+          html += '<div style="font-family:sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;color:var(--text);">' + s.slot_name + '</div></div>';
         }
       });
       html += '</div>';
@@ -638,21 +638,21 @@ async function openBreakSlotPicker(breakId, breakName, price, breakType, sport) 
       html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:1.5rem;">';
       slots.forEach(function(s) {
         if (s.is_taken) {
-          html += '<div style="background:#2a0a0a;border:1px solid #4a1a1a;padding:0.75rem;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:12px;color:var(--red-bright);letter-spacing:1px;opacity:0.6;">' + s.slot_name + '<br><span style="font-size:10px;">TAKEN</span></div>';
+          html += '<div style="background:#2a0a0a;border:1px solid #4a1a1a;padding:0.75rem;text-align:center;font-family:sans-serif;font-size:12px;color:var(--red-bright);letter-spacing:1px;opacity:0.6;">' + s.slot_name + '<br><span style="font-size:10px;">TAKEN</span></div>';
         } else {
-          html += '<div id="slot-' + s.id + '" onclick="toggleSlot('' + s.id + '','' + s.slot_name + '')" style="background:var(--card);border:1px solid var(--border);padding:0.75rem;text-align:center;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:1px;transition:background 0.15s,border-color 0.15s;">' + s.slot_name + '</div>';
+          html += '<div id="slot-' + s.id + '" onclick="toggleSlot('' + s.id + '','' + s.slot_name + '')" style="background:var(--card);border:1px solid var(--border);padding:0.75rem;text-align:center;cursor:pointer;font-family:sans-serif;font-size:12px;letter-spacing:1px;transition:background 0.15s,border-color 0.15s;">' + s.slot_name + '</div>';
         }
       });
       html += '</div>';
     }
 
     html += '<div id="slot-summary" style="background:var(--surface);border:1px solid var(--border);padding:1rem;margin-bottom:1rem;display:none;">';
-    html += '<div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:0.5rem;">Your Selection</div>';
+    html += '<div style="font-family:sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:0.5rem;">Your Selection</div>';
     html += '<div id="slot-summary-items" style="font-size:14px;color:var(--text);margin-bottom:0.5rem;"></div>';
-    html += '<div id="slot-summary-total" style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--red-bright);letter-spacing:2px;"></div>';
+    html += '<div id="slot-summary-total" style="font-family:sans-serif;font-weight:900;font-size:28px;color:var(--red-bright);letter-spacing:2px;"></div>';
     html += '</div>';
 
-    html += '<button id="slot-checkout-btn" onclick="proceedToBreakCheckout()" style="width:100%;background:var(--red);color:#fff;border:none;padding:14px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;cursor:pointer;opacity:0.5;pointer-events:none;">Select slots to continue</button>';
+    html += '<button id="slot-checkout-btn" onclick="proceedToBreakCheckout()" style="width:100%;background:var(--red);color:#fff;border:none;padding:14px;font-family:sans-serif;font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;cursor:pointer;opacity:0.5;pointer-events:none;">Select slots to continue</button>';
     html += '</div>';
 
     overlay.innerHTML = html;
@@ -663,7 +663,7 @@ async function openBreakSlotPicker(breakId, breakName, price, breakType, sport) 
     window.slotPrice = parseFloat((price + '').replace('$', '')) || 0;
 
   } catch(e) {
-    overlay.innerHTML = '<div style="color:var(--red-bright);font-family:'Barlow Condensed',sans-serif;letter-spacing:2px;">Failed to load slots. Please try again.</div>';
+    overlay.innerHTML = '<div style="color:var(--red-bright);font-family:sans-serif;letter-spacing:2px;">Failed to load slots. Please try again.</div>';
   }
 }
 
