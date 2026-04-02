@@ -302,6 +302,58 @@ app.post('/api/breaks/:id/slots/setup', async (req, res) => {
   }
 });
 
+
+// ─────────────────────────────────────────
+// BREAK SLOTS — ADMIN ASSIGN RANDOM TEAMS
+// ─────────────────────────────────────────
+app.post('/api/breaks/:id/slots/assign-random', async (req, res) => {
+  const { sport, admin_key } = req.body;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  
+  const MLB_TEAMS = ['Angels','Astros','Athletics','Blue Jays','Braves','Brewers','Cardinals','Cubs','Diamondbacks','Dodgers','Giants','Guardians','Mariners','Marlins','Mets','Nationals','Orioles','Padres','Phillies','Pirates','Rangers','Rays','Red Sox','Reds','Rockies','Royals','Tigers','Twins','White Sox','Yankees'];
+  const NFL_TEAMS = ['49ers','Bears','Bengals','Bills','Broncos','Browns','Buccaneers','Cardinals','Chargers','Chiefs','Colts','Cowboys','Dolphins','Eagles','Falcons','Giants','Jaguars','Jets','Lions','Packers','Panthers','Patriots','Raiders','Rams','Ravens','Saints','Seahawks','Steelers','Texans','Titans','Vikings','Washington'];
+  const NBA_TEAMS = ['76ers','Bucks','Bulls','Cavaliers','Celtics','Clippers','Grizzlies','Hawks','Heat','Hornets','Jazz','Kings','Knicks','Lakers','Magic','Mavericks','Nets','Nuggets','Pacers','Pelicans','Pistons','Raptors','Rockets','Spurs','Suns','Thunder','Timberwolves','Trail Blazers','Warriors','Wizards'];
+  
+  const teamList = sport === 'baseball' ? MLB_TEAMS : sport === 'football' ? NFL_TEAMS : NBA_TEAMS;
+
+  try {
+    const supabase = getSupabase();
+    
+    // Get all slots for this break
+    const { data: slots, error: fetchErr } = await supabase
+      .from('break_slots')
+      .select('*')
+      .eq('break_id', req.params.id)
+      .order('created_at', { ascending: true });
+    
+    if (fetchErr) return res.status(500).json({ error: fetchErr.message });
+    if (!slots || !slots.length) return res.status(400).json({ error: 'No slots found for this break.' });
+
+    // Shuffle the team list
+    const numSlots = slots.length;
+    const teams = [...teamList].sort(() => Math.random() - 0.5).slice(0, numSlots);
+
+    // Assign a team to each slot
+    const updates = slots.map(function(slot, i) {
+      return supabase
+        .from('break_slots')
+        .update({ slot_name: teams[i] || 'Team ' + (i + 1) })
+        .eq('id', slot.id);
+    });
+
+    await Promise.all(updates);
+
+    // Return the assignments
+    const assignments = slots.map(function(slot, i) {
+      return { spot: slot.slot_name, team: teams[i], buyer: slot.buyer_name };
+    });
+
+    res.json({ success: true, assignments });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to assign teams.' });
+  }
+});
+
 // ─────────────────────────────────────────
 // BREAK SLOTS — ADMIN RESET A SLOT
 // ─────────────────────────────────────────

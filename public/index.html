@@ -318,26 +318,6 @@
       <span class="bb-sub">Sports Cards</span>
     </button>
   </div>
-  <div class="admin-toggle">
-    <button class="btn-outline" style="font-size:11px;padding:6px 16px;" onclick="toggleAdmin()">&#9881; Manage Breaks (Admin)</button>
-  </div>
-  <div class="admin-panel" id="admin-panel">
-    <h3>&#9881; Admin — Add a Break</h3>
-    <div class="admin-form-grid three">
-      <div class="form-group"><label>Break Name</label><input type="text" id="new-break-name" placeholder="e.g. Prismatic Evolutions Case Break"></div>
-      <div class="form-group"><label>Date & Time</label><input type="text" id="new-break-date" placeholder="e.g. Fri Apr 4 · 8PM EST"></div>
-      <div class="form-group"><label>Price Per Spot</label><input type="text" id="new-break-price" placeholder="e.g. $25"></div>
-    </div>
-    <div class="admin-form-grid">
-      <div class="form-group"><label>Total Spots</label><input type="number" id="new-break-spots" placeholder="e.g. 30"></div>
-      <div class="form-group"><label>Brand</label><select id="new-break-brand"><option value="hsa">High St Asylum (TCG)</option><option value="ab">Asylum Breaks (Sports)</option></select></div>
-    </div>
-    <div class="form-group" style="margin-bottom:1rem;">
-      <label>Admin Key</label>
-      <input type="password" id="admin-key-input" placeholder="Enter your admin password">
-    </div>
-    <button class="btn-primary" onclick="addBreak()">+ Add Break</button>
-  </div>
   <div class="breaks-content" id="breaks-content"></div>
 </div>
 
