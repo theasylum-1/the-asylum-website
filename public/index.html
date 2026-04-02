@@ -1089,6 +1089,25 @@ function renderAccountPage() {
         <p style="font-size:15px;margin-top:1rem;"><strong style="color:var(--muted);font-family:sans-serif;letter-spacing:2px;font-size:12px;text-transform:uppercase;">Email</strong><br>${email}</p>
       </div>
       <div style="background:var(--card);border:1px solid var(--border);padding:1.5rem;margin-bottom:1.5rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+          <div class="section-label" style="margin-bottom:0;">Shipping Address</div>
+          <button onclick="toggleAddressEdit()" class="btn-outline" style="padding:5px 14px;font-size:11px;" id="address-edit-btn">Edit</button>
+        </div>
+        <div id="address-display"><p style="color:var(--muted);font-size:14px;">Loading...</p></div>
+        <div id="address-form" style="display:none;">
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:1rem;">
+            <input type="text" id="acct-address1" placeholder="Street address" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:sans-serif;font-size:14px;outline:none;">
+            <input type="text" id="acct-address2" placeholder="Apt, suite, unit (optional)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:sans-serif;font-size:14px;outline:none;">
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;">
+              <input type="text" id="acct-city" placeholder="City" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:sans-serif;font-size:14px;outline:none;">
+              <input type="text" id="acct-state" placeholder="State" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:sans-serif;font-size:14px;outline:none;">
+              <input type="text" id="acct-zip" placeholder="ZIP" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:sans-serif;font-size:14px;outline:none;">
+            </div>
+            <button class="btn-primary" onclick="saveAddress()" style="padding:12px;">Save Address</button>
+          </div>
+        </div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);padding:1.5rem;margin-bottom:1.5rem;">
         <div class="section-label">My PSA Submissions</div>
         <div id="account-psa-list"><p style="color:var(--muted);font-size:14px;">Loading submissions...</p></div>
       </div>
@@ -1100,6 +1119,7 @@ function renderAccountPage() {
     </div>`;
 
   loadAccountPSA();
+  loadAccountAddress();
 }
 
 async function loadAccountPSA() {
