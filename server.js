@@ -112,6 +112,8 @@ app.post('/api/breaks/admin/update', async (req, res) => {
     if (total_spots !== undefined) updates.total_spots = total_spots;
     if (filled_spots !== undefined) updates.filled_spots = filled_spots;
     if (is_active !== undefined) updates.is_active = is_active;
+    if (req.body.break_type !== undefined) updates.break_type = req.body.break_type;
+    if (req.body.sport !== undefined) updates.sport = req.body.sport;
     const { data, error } = await getSupabase().from('breaks').update(updates).eq('id', id).select().single();
     if (error) return res.status(500).json({ error: error.message });
     res.json({ success: true, break: data });
@@ -223,6 +225,99 @@ app.post('/api/shop/admin/upload-image', async (req, res) => {
     res.json({ success: true, url: urlData.publicUrl });
   } catch (err) {
     res.status(500).json({ error: 'Image upload failed.' });
+  }
+});
+
+
+// ─────────────────────────────────────────
+// BREAK SLOTS — GET FOR A BREAK
+// ─────────────────────────────────────────
+app.get('/api/breaks/:id/slots', async (req, res) => {
+  try {
+    const { data, error } = await getSupabase()
+      .from('break_slots')
+      .select('*')
+      .eq('break_id', req.params.id)
+      .order('slot_name', { ascending: true });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load slots.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// BREAK SLOTS — CLAIM A SLOT
+// ─────────────────────────────────────────
+app.post('/api/breaks/:id/slots/claim', async (req, res) => {
+  const { slot_ids, buyer_name, user_id } = req.body;
+  if (!slot_ids || !slot_ids.length) return res.status(400).json({ error: 'No slots selected.' });
+  try {
+    const supabase = getSupabase();
+    // Check slots are still available
+    const { data: slots, error: fetchErr } = await supabase
+      .from('break_slots').select('*').in('id', slot_ids);
+    if (fetchErr) return res.status(500).json({ error: fetchErr.message });
+    const taken = slots.filter(function(s) { return s.is_taken; });
+    if (taken.length) return res.status(409).json({ error: 'Some slots already taken: ' + taken.map(function(s){return s.slot_name;}).join(', ') });
+    // Claim them
+    const { error: updateErr } = await supabase
+      .from('break_slots')
+      .update({ is_taken: true, buyer_name: buyer_name || null, user_id: user_id || null })
+      .in('id', slot_ids);
+    if (updateErr) return res.status(500).json({ error: updateErr.message });
+    // Update filled_spots on break
+    const { data: breakData } = await supabase.from('breaks').select('filled_spots').eq('id', req.params.id).single();
+    if (breakData) {
+      await supabase.from('breaks').update({ filled_spots: (breakData.filled_spots || 0) + slot_ids.length }).eq('id', req.params.id);
+    }
+    res.json({ success: true, claimed: slot_ids.length });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to claim slots.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// BREAK SLOTS — ADMIN CREATE SLOTS FOR A BREAK
+// ─────────────────────────────────────────
+app.post('/api/breaks/:id/slots/setup', async (req, res) => {
+  const { slots, admin_key } = req.body;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  if (!slots || !slots.length) return res.status(400).json({ error: 'No slots provided.' });
+  try {
+    const supabase = getSupabase();
+    // Delete existing slots first
+    await supabase.from('break_slots').delete().eq('break_id', req.params.id);
+    // Insert new slots
+    const inserts = slots.map(function(s) {
+      return { break_id: req.params.id, slot_name: s.name, slot_type: s.type, is_taken: false };
+    });
+    const { error } = await supabase.from('break_slots').insert(inserts);
+    if (error) return res.status(500).json({ error: error.message });
+    // Update total_spots on break
+    await supabase.from('breaks').update({ total_spots: slots.length, filled_spots: 0 }).eq('id', req.params.id);
+    res.json({ success: true, slots_created: slots.length });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to setup slots.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// BREAK SLOTS — ADMIN RESET A SLOT
+// ─────────────────────────────────────────
+app.post('/api/breaks/:id/slots/reset', async (req, res) => {
+  const { slot_id, admin_key } = req.body;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  try {
+    const supabase = getSupabase();
+    await supabase.from('break_slots').update({ is_taken: false, buyer_name: null, user_id: null }).eq('id', slot_id);
+    const { data: breakData } = await supabase.from('breaks').select('filled_spots').eq('id', req.params.id).single();
+    if (breakData && breakData.filled_spots > 0) {
+      await supabase.from('breaks').update({ filled_spots: breakData.filled_spots - 1 }).eq('id', req.params.id);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to reset slot.' });
   }
 });
 

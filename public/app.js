@@ -253,10 +253,10 @@ async function loadBreaks() {
     const abData = await abRes.json();
 
     liveBreaks.hsa = hsaData.map(function (b) {
-      return { name: b.name, date: b.break_date, price: '$' + b.price, spots: b.total_spots, filled: b.filled_spots, id: b.id };
+      return { name: b.name, date: b.break_date, price: '$' + b.price, spots: b.total_spots, filled: b.filled_spots, id: b.id, break_type: b.break_type || 'standard', sport: b.sport || '' };
     });
     liveBreaks.ab = abData.map(function (b) {
-      return { name: b.name, date: b.break_date, price: '$' + b.price, spots: b.total_spots, filled: b.filled_spots, id: b.id };
+      return { name: b.name, date: b.break_date, price: '$' + b.price, spots: b.total_spots, filled: b.filled_spots, id: b.id, break_type: b.break_type || 'standard', sport: b.sport || '' };
     });
 
     // Override the hardcoded breaks with live data
@@ -554,3 +554,182 @@ function setOrderAndCheckout(amount, itemName) {
   window.currentOrderItem = itemName;
   openModal('checkout');
 }
+
+// ─────────────────────────────────────────
+// BREAK SLOT PICKER
+// ─────────────────────────────────────────
+var ENERGY_COLORS = {
+  'Fire': '#e74c3c', 'Water': '#3498db', 'Grass': '#27ae60',
+  'Lightning': '#f1c40f', 'Psychic': '#9b59b6', 'Fighting': '#e67e22',
+  'Darkness': '#2c3e50', 'Metal': '#95a5a6'
+};
+
+async function openBreakSlotPicker(breakId, breakName, price, breakType, sport) {
+  window.currentOrderAmount = parseFloat((price + '').replace('$', '')) || 0;
+  window.currentOrderItem = breakName;
+  window.currentBreakId = breakId;
+  window.currentBreakType = breakType;
+
+  // Remove existing picker
+  var existing = document.getElementById('slot-picker-overlay');
+  if (existing) existing.remove();
+
+  // Show loading overlay
+  var overlay = document.createElement('div');
+  overlay.id = 'slot-picker-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:300;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:2rem;';
+  overlay.innerHTML = '<div style="color:var(--muted);font-family:'Barlow Condensed',sans-serif;letter-spacing:3px;text-transform:uppercase;font-size:13px;">Loading slots...</div>';
+  document.body.appendChild(overlay);
+
+  try {
+    var res = await fetch('/api/breaks/' + breakId + '/slots');
+    var slots = await res.json();
+
+    var selectedSlots = [];
+    var isRandom = breakType === 'random_team';
+    var isEnergy = breakType === 'energy';
+
+    var title = isEnergy ? 'Pick Your Energy' : isRandom ? 'Buy a Spot' : 'Pick Your Team';
+    var subtitle = isEnergy ? 'Select one or more energy types — $' + price + ' per slot' :
+                   isRandom ? 'Random teams assigned after sellout — $' + price + ' per spot' :
+                   'Select one or more teams — $' + price + ' per slot';
+
+    var sportLabel = sport === 'baseball' ? 'MLB' : sport === 'football' ? 'NFL' : sport === 'basketball' ? 'NBA' : '';
+
+    var html = '<div style="background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--red);padding:2rem;width:100%;max-width:700px;position:relative;">';
+    html += '<button onclick="document.getElementById('slot-picker-overlay').remove()" style="position:absolute;top:1rem;right:1rem;background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;line-height:1;">&#215;</button>';
+    html += '<h2 style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:4px;color:var(--text);margin-bottom:0.25rem;">' + title + '</h2>';
+    html += '<p style="font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem;">' + breakName + '</p>';
+    if (sportLabel) html += '<span style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;padding:3px 10px;border:1px solid var(--border);color:var(--muted);display:inline-block;margin-bottom:1rem;">' + sportLabel + '</span>';
+    html += '<p style="font-size:13px;color:#888;margin-bottom:1.5rem;">' + subtitle + '</p>';
+
+    var available = slots.filter(function(s){return !s.is_taken;}).length;
+    html += '<div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;">' + available + ' of ' + slots.length + ' slots available</div>';
+
+    if (isRandom) {
+      // Random — just show spots grid
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;margin-bottom:1.5rem;">';
+      slots.forEach(function(s) {
+        if (s.is_taken) {
+          html += '<div style="background:#2a0a0a;border:1px solid #4a1a1a;padding:0.75rem;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:12px;color:var(--red-bright);letter-spacing:1px;">TAKEN</div>';
+        } else {
+          html += '<div id="slot-' + s.id + '" onclick="toggleSlot('' + s.id + '','' + s.slot_name + '')" style="background:var(--card);border:1px solid var(--border);padding:0.75rem;text-align:center;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:1px;transition:background 0.15s;">' + s.slot_name + '</div>';
+        }
+      });
+      html += '</div>';
+    } else if (isEnergy) {
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:1.5rem;">';
+      slots.forEach(function(s) {
+        var color = ENERGY_COLORS[s.slot_name] || '#888';
+        if (s.is_taken) {
+          html += '<div style="background:#1a1a1a;border:1px solid #2a2a2a;padding:1rem;text-align:center;opacity:0.4;">';
+          html += '<div style="font-size:20px;margin-bottom:4px;">&#9711;</div>';
+          html += '<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;color:#555;">' + s.slot_name + '</div>';
+          html += '<div style="font-size:10px;color:#444;margin-top:4px;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;">TAKEN</div></div>';
+        } else {
+          html += '<div id="slot-' + s.id + '" onclick="toggleSlot('' + s.id + '','' + s.slot_name + '')" style="background:var(--card);border:2px solid ' + color + '33;padding:1rem;text-align:center;cursor:pointer;transition:background 0.15s,border-color 0.15s;">';
+          html += '<div style="width:32px;height:32px;border-radius:50%;background:' + color + ';margin:0 auto 8px;"></div>';
+          html += '<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;color:var(--text);">' + s.slot_name + '</div></div>';
+        }
+      });
+      html += '</div>';
+    } else {
+      // Pick your team
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:1.5rem;">';
+      slots.forEach(function(s) {
+        if (s.is_taken) {
+          html += '<div style="background:#2a0a0a;border:1px solid #4a1a1a;padding:0.75rem;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:12px;color:var(--red-bright);letter-spacing:1px;opacity:0.6;">' + s.slot_name + '<br><span style="font-size:10px;">TAKEN</span></div>';
+        } else {
+          html += '<div id="slot-' + s.id + '" onclick="toggleSlot('' + s.id + '','' + s.slot_name + '')" style="background:var(--card);border:1px solid var(--border);padding:0.75rem;text-align:center;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:1px;transition:background 0.15s,border-color 0.15s;">' + s.slot_name + '</div>';
+        }
+      });
+      html += '</div>';
+    }
+
+    html += '<div id="slot-summary" style="background:var(--surface);border:1px solid var(--border);padding:1rem;margin-bottom:1rem;display:none;">';
+    html += '<div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:0.5rem;">Your Selection</div>';
+    html += '<div id="slot-summary-items" style="font-size:14px;color:var(--text);margin-bottom:0.5rem;"></div>';
+    html += '<div id="slot-summary-total" style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--red-bright);letter-spacing:2px;"></div>';
+    html += '</div>';
+
+    html += '<button id="slot-checkout-btn" onclick="proceedToBreakCheckout()" style="width:100%;background:var(--red);color:#fff;border:none;padding:14px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;cursor:pointer;opacity:0.5;pointer-events:none;">Select slots to continue</button>';
+    html += '</div>';
+
+    overlay.innerHTML = html;
+
+    // Store slots data and selected state
+    window.breakSlotsData = slots;
+    window.selectedSlotIds = [];
+    window.slotPrice = parseFloat((price + '').replace('$', '')) || 0;
+
+  } catch(e) {
+    overlay.innerHTML = '<div style="color:var(--red-bright);font-family:'Barlow Condensed',sans-serif;letter-spacing:2px;">Failed to load slots. Please try again.</div>';
+  }
+}
+
+function toggleSlot(slotId, slotName) {
+  var el = document.getElementById('slot-' + slotId);
+  if (!el) return;
+  var idx = window.selectedSlotIds.indexOf(slotId);
+  if (idx === -1) {
+    window.selectedSlotIds.push(slotId);
+    el.style.background = 'var(--red-glow)';
+    el.style.borderColor = 'var(--red-bright)';
+    el.style.color = '#fff';
+  } else {
+    window.selectedSlotIds.splice(idx, 1);
+    el.style.background = 'var(--card)';
+    el.style.borderColor = window.currentBreakType === 'energy' ? (ENERGY_COLORS[slotName] || '#888') + '33' : 'var(--border)';
+    el.style.color = 'var(--text)';
+  }
+  updateSlotSummary();
+}
+
+function updateSlotSummary() {
+  var selected = window.selectedSlotIds;
+  var summary = document.getElementById('slot-summary');
+  var items = document.getElementById('slot-summary-items');
+  var total = document.getElementById('slot-summary-total');
+  var btn = document.getElementById('slot-checkout-btn');
+  
+  if (!selected.length) {
+    summary.style.display = 'none';
+    btn.style.opacity = '0.5';
+    btn.style.pointerEvents = 'none';
+    btn.textContent = 'Select slots to continue';
+    return;
+  }
+
+  var names = selected.map(function(id) {
+    var s = window.breakSlotsData.find(function(x){return x.id===id;});
+    return s ? s.slot_name : id;
+  });
+  var totalAmount = selected.length * window.slotPrice;
+  window.currentOrderAmount = totalAmount;
+
+  summary.style.display = 'block';
+  items.textContent = names.join(', ');
+  total.textContent = '$' + totalAmount.toFixed(2);
+  btn.style.opacity = '1';
+  btn.style.pointerEvents = 'auto';
+  btn.textContent = 'Continue to Payment — $' + totalAmount.toFixed(2);
+}
+
+function proceedToBreakCheckout() {
+  if (!window.selectedSlotIds.length) return;
+  document.getElementById('slot-picker-overlay').remove();
+  openModal('checkout');
+}
+
+// Override setOrderAndCheckout for breaks to use slot picker
+var _originalSetOrder = window.setOrderAndCheckout;
+window.openBreakEntry = function(breakId, breakName, price, breakType, sport) {
+  // If no break type (old break), just use regular checkout
+  if (!breakType || breakType === 'standard') {
+    window.currentOrderAmount = parseFloat((price + '').replace('$', '')) || 0;
+    window.currentOrderItem = breakName;
+    openModal('checkout');
+  } else {
+    openBreakSlotPicker(breakId, breakName, price, breakType, sport);
+  }
+};

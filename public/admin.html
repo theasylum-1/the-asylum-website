@@ -129,15 +129,32 @@
         <div class="form-group"><label>Break Name</label><input type="text" id="b-name" placeholder="e.g. Prismatic Evolutions Case Break"></div>
         <div class="form-group"><label>Date & Time</label><input type="text" id="b-date" placeholder="e.g. Sat Apr 5 · 8PM EST"></div>
         <div class="form-group"><label>Brand</label>
-          <select id="b-brand"><option value="hsa">High St Asylum (TCG)</option><option value="ab">Asylum Breaks (Sports)</option></select>
+          <select id="b-brand" onchange="updateBreakTypeOptions()">
+            <option value="hsa">High St Asylum (TCG)</option>
+            <option value="ab">Asylum Breaks (Sports)</option>
+          </select>
         </div>
       </div>
       <div class="form-grid three">
-        <div class="form-group"><label>Price Per Spot ($)</label><input type="number" id="b-price" placeholder="25"></div>
-        <div class="form-group"><label>Total Spots</label><input type="number" id="b-spots" placeholder="30"></div>
-        <div class="form-group"><label>Spots Filled</label><input type="number" id="b-filled" placeholder="0" value="0"></div>
+        <div class="form-group"><label>Break Type</label>
+          <select id="b-type" onchange="updateSportField()">
+            <option value="energy">Energy Break (HSA)</option>
+          </select>
+        </div>
+        <div class="form-group" id="b-sport-group" style="display:none;"><label>Sport</label>
+          <select id="b-sport">
+            <option value="baseball">Baseball</option>
+            <option value="football">Football</option>
+            <option value="basketball">Basketball</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Price Per Slot ($)</label><input type="number" id="b-price" placeholder="25"></div>
       </div>
-      <button class="btn-primary" onclick="addBreak()">+ Add Break</button>
+      <div class="form-group" style="margin-bottom:1rem;">
+        <label>Random Team Spots (only for random breaks)</label>
+        <input type="number" id="b-spots" placeholder="Leave blank for energy/pick team — auto-calculated">
+      </div>
+      <button class="btn-primary" onclick="addBreak()">+ Add Break & Setup Slots</button>
     </div>
 
     <!-- BREAKS TABLE -->
@@ -276,6 +293,16 @@
 
 </div>
 
+
+<!-- SLOTS MODAL -->
+<div class="edit-modal-overlay" id="slots-modal">
+  <div class="edit-modal" style="max-width:700px;">
+    <button class="modal-close-btn" onclick="document.getElementById('slots-modal').classList.remove('open')">&#215;</button>
+    <h3 id="slots-modal-title">Break Slots</h3>
+    <div id="slots-modal-content" style="max-height:60vh;overflow-y:auto;"></div>
+  </div>
+</div>
+
 <!-- EDIT MODALS -->
 <div class="edit-modal-overlay" id="edit-break-modal">
   <div class="edit-modal">
@@ -291,8 +318,18 @@
       <div class="form-group"><label>Total Spots</label><input type="number" id="edit-b-spots"></div>
       <div class="form-group"><label>Spots Filled</label><input type="number" id="edit-b-filled"></div>
     </div>
-    <div class="form-group" style="margin-bottom:1rem;"><label>Status</label>
-      <select id="edit-b-active"><option value="true">Active</option><option value="false">Inactive</option></select>
+    <div class="form-grid two">
+      <div class="form-group"><label>Status</label>
+        <select id="edit-b-active"><option value="true">Active</option><option value="false">Inactive</option></select>
+      </div>
+      <div class="form-group"><label>Sport (AB only)</label>
+        <select id="edit-b-sport">
+          <option value="">N/A</option>
+          <option value="baseball">Baseball</option>
+          <option value="football">Football</option>
+          <option value="basketball">Basketball</option>
+        </select>
+      </div>
     </div>
     <button class="btn-primary" style="width:100%;" onclick="saveBreakEdit()">Save Changes</button>
   </div>
@@ -328,6 +365,91 @@
 var ADMIN_KEY = '';
 var allBreaks = [], allShop = [], allPSA = [];
 var breakFilter = 'all', shopFilter = 'all', psaFilter = 'all';
+
+// ── BREAK TYPE HELPERS ──
+var ENERGIES = ['Fire','Water','Grass','Lightning','Psychic','Fighting','Darkness','Metal'];
+var MLB_TEAMS = ['Angels','Astros','Athletics','Blue Jays','Braves','Brewers','Cardinals','Cubs','Diamondbacks','Dodgers','Giants','Guardians','Mariners','Marlins','Mets','Nationals','Orioles','Padres','Phillies','Pirates','Rangers','Rays','Red Sox','Reds','Rockies','Royals','Tigers','Twins','White Sox','Yankees'];
+var NFL_TEAMS = ['49ers','Bears','Bengals','Bills','Broncos','Browns','Buccaneers','Cardinals','Chargers','Chiefs','Colts','Cowboys','Dolphins','Eagles','Falcons','Giants','Jaguars','Jets','Lions','Packers','Panthers','Patriots','Raiders','Rams','Ravens','Saints','Seahawks','Steelers','Texans','Titans','Vikings','Washington'];
+var NBA_TEAMS = ['76ers','Bucks','Bulls','Cavaliers','Celtics','Clippers','Grizzlies','Hawks','Heat','Hornets','Jazz','Kings','Knicks','Lakers','Magic','Mavericks','Nets','Nuggets','Pacers','Pelicans','Pistons','Raptors','Rockets','Spurs','Suns','Thunder','Timberwolves','Trail Blazers','Warriors','Wizards'];
+
+function updateBreakTypeOptions() {
+  var brand = document.getElementById('b-brand').value;
+  var typeSelect = document.getElementById('b-type');
+  typeSelect.innerHTML = '';
+  if (brand === 'hsa') {
+    typeSelect.innerHTML = '<option value="energy">Energy Break</option>';
+    document.getElementById('b-sport-group').style.display = 'none';
+  } else {
+    typeSelect.innerHTML = '<option value="pick_team">Pick Your Team</option><option value="random_team">Random Team</option>';
+    document.getElementById('b-sport-group').style.display = 'block';
+  }
+  updateSportField();
+}
+
+function updateSportField() {
+  var type = document.getElementById('b-type').value;
+  var brand = document.getElementById('b-brand').value;
+  document.getElementById('b-sport-group').style.display = (brand === 'ab') ? 'block' : 'none';
+  document.getElementById('b-spots').placeholder = type === 'random_team' ? 'e.g. 30 random spots' : 'Auto-calculated from teams/energies';
+}
+
+async function viewSlots(breakId, breakType, sport) {
+  document.getElementById('slots-modal').classList.add('open');
+  document.getElementById('slots-modal-content').innerHTML = '<p style="color:var(--muted);padding:1rem;">Loading slots...</p>';
+  
+  var b = allBreaks.find(function(x){return x.id===breakId;});
+  var title = b ? b.name : 'Break Slots';
+  document.getElementById('slots-modal-title').textContent = title;
+
+  try {
+    var res = await fetch('/api/breaks/' + breakId + '/slots');
+    var slots = await res.json();
+    
+    var statusColors = {true:'var(--red-bright)',false:'var(--green)'};
+    var html = '<div style="margin-bottom:1rem;display:flex;gap:8px;flex-wrap:wrap;">';
+    
+    var available = slots.filter(function(s){return !s.is_taken;}).length;
+    html += '<span style="font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:2px;color:var(--muted);">' + available + ' of ' + slots.length + ' slots available</span>';
+    html += '</div>';
+    
+    if (!slots.length) {
+      html += '<p style="color:var(--muted);font-size:13px;">No slots set up yet.</p>';
+    } else {
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;">';
+      slots.forEach(function(s) {
+        html += '<div style="background:' + (s.is_taken?'#2a0a0a':'#1a2a1a') + ';border:1px solid ' + (s.is_taken?'#4a1a1a':'#2d4a2d') + ';padding:0.75rem;text-align:center;">';
+        html += '<div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;color:' + (s.is_taken?'var(--red-bright)':'var(--green)') + ';">' + s.slot_name + '</div>';
+        if (s.is_taken && s.buyer_name) html += '<div style="font-size:11px;color:var(--muted);margin-top:4px;">' + s.buyer_name + '</div>';
+        if (s.is_taken) html += '<button onclick="resetSlot(\'' + breakId + '\',\'' + s.id + '\')" style="margin-top:6px;background:none;border:1px solid #4a1a1a;color:var(--red-bright);padding:3px 8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;">Reset</button>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+    document.getElementById('slots-modal-content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('slots-modal-content').innerHTML = '<p style="color:var(--red-bright);">Failed to load slots.</p>';
+  }
+}
+
+async function resetSlot(breakId, slotId) {
+  if (!confirm('Reset this slot? The buyer will lose their spot.')) return;
+  try {
+    var res = await fetch('/api/breaks/' + breakId + '/slots/reset', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({slot_id:slotId, admin_key:ADMIN_KEY}) });
+    if (res.ok) { showToast('Slot reset!', 'success'); viewSlots(breakId); loadBreaks(); }
+  } catch(e) { showToast('Reset failed.', 'error'); }
+}
+
+function getSlotsForBreak(breakType, sport, randomSpots) {
+  if (breakType === 'energy') {
+    return ENERGIES.map(function(e){ return {name:e, type:'energy'}; });
+  } else if (breakType === 'pick_team') {
+    var teams = sport==='baseball'?MLB_TEAMS:sport==='football'?NFL_TEAMS:NBA_TEAMS;
+    return teams.map(function(t){ return {name:t, type:'team'}; });
+  } else {
+    var spots = parseInt(randomSpots) || 30;
+    return Array.from({length:spots}, function(_,i){ return {name:'Spot ' + (i+1), type:'random'}; });
+  }
+}
 
 // ── AUTH ──
 function unlock() {
@@ -430,6 +552,7 @@ function openBreakEdit(id) {
   document.getElementById('edit-b-spots').value = b.total_spots;
   document.getElementById('edit-b-filled').value = b.filled_spots;
   document.getElementById('edit-b-active').value = b.is_active ? 'true' : 'false';
+  if (document.getElementById('edit-b-sport')) document.getElementById('edit-b-sport').value = b.sport || '';
   document.getElementById('edit-break-modal').classList.add('open');
 }
 
@@ -458,17 +581,36 @@ async function addBreak() {
   var name = document.getElementById('b-name').value.trim();
   var date = document.getElementById('b-date').value.trim();
   var brand = document.getElementById('b-brand').value;
+  var breakType = document.getElementById('b-type').value;
+  var sport = document.getElementById('b-sport') ? document.getElementById('b-sport').value : null;
   var price = parseFloat(document.getElementById('b-price').value);
-  var spots = parseInt(document.getElementById('b-spots').value);
-  var filled = parseInt(document.getElementById('b-filled').value) || 0;
-  if (!name||!date||!price||!spots) { showToast('Please fill all required fields.', 'error'); return; }
+  var randomSpots = document.getElementById('b-spots').value;
+
+  if (!name||!date||!price) { showToast('Name, date and price required.', 'error'); return; }
+  if (breakType==='random_team' && !randomSpots) { showToast('Please enter number of spots for random break.', 'error'); return; }
+
+  var slots = getSlotsForBreak(breakType, sport, randomSpots);
+  var totalSpots = slots.length;
+
+  showToast('Adding break...', 'info');
+
   try {
-    var res = await fetch('/api/breaks', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({brand,name,break_date:date,price,total_spots:spots,admin_key:ADMIN_KEY}) });
+    // Create the break
+    var res = await fetch('/api/breaks', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({brand, name, break_date:date, price, total_spots:totalSpots, admin_key:ADMIN_KEY}) });
     var data = await res.json();
     if (!res.ok) { showToast(data.error||'Failed.', 'error'); return; }
-    showToast('Break added!', 'success');
+
+    var breakId = data.break.id;
+
+    // Update break_type and sport
+    await fetch('/api/breaks/admin/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:breakId, break_type:breakType, sport:sport||null, admin_key:ADMIN_KEY}) });
+
+    // Setup slots
+    var slotRes = await fetch('/api/breaks/' + breakId + '/slots/setup', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({slots, admin_key:ADMIN_KEY}) });
+    var slotData = await slotRes.json();
+
+    showToast('Break added with ' + totalSpots + ' slots!', 'success');
     ['b-name','b-date','b-price','b-spots'].forEach(function(id){document.getElementById(id).value='';});
-    document.getElementById('b-filled').value = '0';
     loadBreaks();
   } catch(e) { showToast('Failed to add break.', 'error'); }
 }
