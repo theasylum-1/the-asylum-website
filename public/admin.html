@@ -817,17 +817,36 @@ async function addShopItem() {
 
 async function uploadImage(file) {
   return new Promise(function(resolve) {
+    // Compress image using canvas before uploading
     var reader = new FileReader();
-    reader.onload = async function(e) {
-      try {
-        var res = await fetch('/api/shop/admin/upload-image', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({image_base64: e.target.result, filename: file.name, admin_key: ADMIN_KEY})
-        });
-        var data = await res.json();
-        resolve(res.ok ? data.url : null);
-      } catch(err) { resolve(null); }
+    reader.onload = function(e) {
+      var img = new Image();
+      img.onload = async function() {
+        // Resize to max 800px on longest side
+        var maxSize = 800;
+        var w = img.width, h = img.height;
+        if (w > maxSize || h > maxSize) {
+          if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+          else { w = Math.round(w * maxSize / h); h = maxSize; }
+        }
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        var compressed = canvas.toDataURL('image/jpeg', 0.75);
+        
+        try {
+          var res = await fetch('/api/shop/admin/upload-image', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({image_base64: compressed, filename: file.name.replace(/\.[^.]+$/, '.jpg'), admin_key: ADMIN_KEY})
+          });
+          var data = await res.json();
+          if (!res.ok) { showToast('Upload failed: ' + (data.error||'unknown'), 'error'); resolve(null); return; }
+          resolve(data.url);
+        } catch(err) { showToast('Upload failed.', 'error'); resolve(null); }
+      };
+      img.src = e.target.result;
     };
     reader.readAsDataURL(file);
   });
