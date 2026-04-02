@@ -1652,6 +1652,14 @@ async function openBreakSlotPicker(breakId, breakName, price, breakType, sport) 
         nameLabel.textContent = s.slot_name;
         slotEl.appendChild(nameLabel);
 
+        // Show individual price if different from base or if pick_team
+        if (!isRandom && !isEnergy && s.price > 0) {
+          var priceLabel = document.createElement('div');
+          priceLabel.style.cssText = 'font-family:sans-serif;font-size:11px;color:var(--red-bright);margin-top:3px;font-weight:700;';
+          priceLabel.textContent = '$' + parseFloat(s.price).toFixed(0);
+          slotEl.appendChild(priceLabel);
+        }
+
         // Store data and attach click
         (function(sid, sname) {
           slotEl.onclick = function() { toggleSlot(sid, sname); };
@@ -1709,7 +1717,7 @@ function updateSlotSummary() {
   var items = document.getElementById('slot-summary-items');
   var total = document.getElementById('slot-summary-total');
   var btn = document.getElementById('slot-checkout-btn');
-  
+
   if (!selected.length) {
     summary.style.display = 'none';
     btn.style.opacity = '0.5';
@@ -1718,11 +1726,16 @@ function updateSlotSummary() {
     return;
   }
 
-  var names = selected.map(function(id) {
+  var names = [];
+  var totalAmount = 0;
+  selected.forEach(function(id) {
     var s = window.breakSlotsData.find(function(x){return x.id===id;});
-    return s ? s.slot_name : id;
+    if (s) {
+      names.push(s.slot_name);
+      // Use per-slot price if set, otherwise fall back to base price
+      totalAmount += (s.price && s.price > 0) ? parseFloat(s.price) : window.slotPrice;
+    }
   });
-  var totalAmount = selected.length * window.slotPrice;
   window.currentOrderAmount = totalAmount;
 
   summary.style.display = 'block';

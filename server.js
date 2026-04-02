@@ -290,7 +290,7 @@ app.post('/api/breaks/:id/slots/setup', async (req, res) => {
     await supabase.from('break_slots').delete().eq('break_id', req.params.id);
     // Insert new slots
     const inserts = slots.map(function(s) {
-      return { break_id: req.params.id, slot_name: s.name, slot_type: s.type, is_taken: false };
+      return { break_id: req.params.id, slot_name: s.name, slot_type: s.type, is_taken: false, price: s.price || 0 };
     });
     const { error } = await supabase.from('break_slots').insert(inserts);
     if (error) return res.status(500).json({ error: error.message });
