@@ -734,3 +734,26 @@ window.openBreakEntry = function(breakId, breakName, price, breakType, sport) {
     openBreakSlotPicker(breakId, breakName, price, breakType, sport);
   }
 };
+
+// ─────────────────────────────────────────
+// EXPOSE FUNCTIONS TO GLOBAL SCOPE
+// ─────────────────────────────────────────
+window.loadBreaks = loadBreaks;
+window.renderBreaks = renderBreaks;
+window.submitSignup = submitSignup;
+window.submitSignin = submitSignin;
+window.signOut = signOut;
+window.lookupPSA = lookupPSA;
+window.submitContact = submitContact;
+window.resetContact = resetContact;
+window.submitSmsSignup = submitSmsSignup;
+window.setOrderAndCheckout = setOrderAndCheckout;
+window.openBreakEntry = openBreakEntry;
+window.openPayModal = openPayModal;
+window.closePayModal = closePayModal;
+window.copyToClipboard = copyToClipboard;
+window.initiateStripePayment = initiateStripePayment;
+window.initiatePayPalPayment = initiatePayPalPayment;
+window.confirmStripePayment = confirmStripePayment;
+window.toggleSlot = toggleSlot;
+window.proceedToBreakCheckout = proceedToBreakCheckout;
