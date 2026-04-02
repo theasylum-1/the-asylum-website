@@ -203,8 +203,9 @@ app.post('/api/shop/admin/add', async (req, res) => {
   if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
   if (!title || !price) return res.status(400).json({ error: 'Title and price required.' });
   try {
+    const quantity = req.body.quantity || 1;
     const { data, error } = await getSupabase().from('shop_items')
-      .insert({ title, category: category || null, condition: condition || null, price, image_url: image_url || null, in_stock: in_stock !== false })
+      .insert({ title, category: category || null, condition: condition || null, price, image_url: image_url || null, in_stock: in_stock !== false, quantity })
       .select().single();
     if (error) return res.status(500).json({ error: error.message });
     res.json({ success: true, item: data });
@@ -227,6 +228,7 @@ app.post('/api/shop/admin/update', async (req, res) => {
     if (price !== undefined) updates.price = price;
     if (image_url !== undefined) updates.image_url = image_url;
     if (in_stock !== undefined) updates.in_stock = in_stock;
+    if (req.body.quantity !== undefined) updates.quantity = req.body.quantity;
     const { data, error } = await getSupabase().from('shop_items').update(updates).eq('id', id).select().single();
     if (error) return res.status(500).json({ error: error.message });
     res.json({ success: true, item: data });

@@ -203,6 +203,9 @@
       <div class="form-grid three">
         <div class="form-group"><label>Condition</label><input type="text" id="s-condition" placeholder="e.g. NM/M, PSA 10"></div>
         <div class="form-group"><label>Price ($)</label><input type="number" id="s-price" placeholder="49.99" step="0.01"></div>
+        <div class="form-group"><label>Quantity</label>
+          <input type="number" id="s-quantity" placeholder="1" min="0" value="1">
+        </div>
         <div class="form-group"><label>In Stock</label>
           <select id="s-instock"><option value="true">Yes — In Stock</option><option value="false">No — Out of Stock</option></select>
         </div>
@@ -354,6 +357,9 @@
     <div class="form-grid three">
       <div class="form-group"><label>Condition</label><input type="text" id="edit-s-condition"></div>
       <div class="form-group"><label>Price ($)</label><input type="number" id="edit-s-price" step="0.01"></div>
+      <div class="form-group"><label>Quantity</label>
+        <input type="number" id="edit-s-quantity" min="0" value="1">
+      </div>
       <div class="form-group"><label>Stock</label>
         <select id="edit-s-instock"><option value="true">In Stock</option><option value="false">Out of Stock</option></select>
       </div>
@@ -727,7 +733,7 @@ function filterShop() {
 function renderShopTable(data) {
   var wrap = document.getElementById('shop-table-wrap');
   if (!data.length) { wrap.innerHTML = '<p style="color:var(--muted);font-size:14px;padding:1rem 0;">No items found.</p>'; return; }
-  var html = '<table><thead><tr><th>Image</th><th>Title</th><th>Category</th><th>Condition</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead><tbody>';
+  var html = '<table><thead><tr><th>Image</th><th>Title</th><th>Category</th><th>Condition</th><th>Price</th><th>Qty</th><th>Stock</th><th>Actions</th></tr></thead><tbody>';
   data.forEach(function(i) {
     html += '<tr>';
     html += '<td>' + (i.image_url ? '<img src="' + i.image_url + '" class="image-preview">' : '<div class="image-placeholder">No Image</div>') + '</td>';
@@ -735,6 +741,7 @@ function renderShopTable(data) {
     html += '<td style="font-size:12px;color:var(--muted);">' + (i.category||'—') + '</td>';
     html += '<td style="font-size:12px;">' + (i.condition||'—') + '</td>';
     html += '<td style="font-weight:500;">$' + parseFloat(i.price).toFixed(2) + '</td>';
+    html += '<td style="font-size:13px;">' + (i.quantity || 1) + '</td>';
     html += '<td><span class="badge ' + (i.in_stock?'instock':'outstock') + '">' + (i.in_stock?'In Stock':'Out of Stock') + '</span></td>';
     html += '<td><div class="actions-col">';
     html += '<button class="btn-outline btn-sm" onclick="openShopEdit(\'' + i.id + '\')">Edit</button>';
@@ -755,6 +762,7 @@ function openShopEdit(id) {
   document.getElementById('edit-s-condition').value = i.condition || '';
   document.getElementById('edit-s-price').value = i.price;
   document.getElementById('edit-s-instock').value = i.in_stock ? 'true' : 'false';
+  if (document.getElementById('edit-s-quantity')) document.getElementById('edit-s-quantity').value = i.quantity || 1;
   document.getElementById('edit-shop-modal').classList.add('open');
 }
 
@@ -766,7 +774,8 @@ async function saveShopEdit() {
     category: document.getElementById('edit-s-category').value,
     condition: document.getElementById('edit-s-condition').value,
     price: parseFloat(document.getElementById('edit-s-price').value),
-    in_stock: document.getElementById('edit-s-instock').value === 'true'
+    in_stock: document.getElementById('edit-s-instock').value === 'true',
+    quantity: parseInt(document.getElementById('edit-s-quantity').value) || 1
   };
   try {
     var res = await fetch('/api/shop/admin/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
@@ -794,7 +803,8 @@ async function addShopItem() {
   }
 
   try {
-    var res = await fetch('/api/shop/admin/add', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title, category, condition, price, image_url:imageUrl, in_stock:instock, admin_key:ADMIN_KEY}) });
+    var quantity = parseInt(document.getElementById('s-quantity').value) || 1;
+    var res = await fetch('/api/shop/admin/add', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title, category, condition, price, image_url:imageUrl, in_stock:instock, quantity, admin_key:ADMIN_KEY}) });
     var data = await res.json();
     if (!res.ok) { showToast(data.error||'Failed.', 'error'); return; }
     showToast('Item added!', 'success');

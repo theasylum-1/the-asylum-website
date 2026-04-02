@@ -1290,7 +1290,8 @@ async function loadShopItems() {
       title.textContent = item.title;
       var meta = document.createElement('div');
       meta.className = 'meta';
-      meta.textContent = (item.category || '') + (item.condition ? ' · ' + item.condition : '');
+      var qty = item.quantity || 1;
+      meta.textContent = (item.category || '') + (item.condition ? ' · ' + item.condition : '') + (qty > 1 ? ' · Qty: ' + qty : '');
       var price = document.createElement('div');
       price.className = 'price';
       price.textContent = '$' + parseFloat(item.price).toFixed(2);
