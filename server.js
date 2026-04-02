@@ -459,8 +459,39 @@ app.post('/api/contact', async (req, res) => {
   try {
     // Save to Supabase for your records
     await getSupabase().from('contact_messages').insert({ name, email, subject, message });
+
+    // Send email via Resend
+    if (process.env.RESEND_API_KEY) {
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + process.env.RESEND_API_KEY
+        },
+        body: JSON.stringify({
+          from: 'The Asylum Website <onboarding@resend.dev>',
+          to: ['theasylumbranding@gmail.com'],
+          reply_to: email,
+          subject: '[The Asylum] ' + subject + ' — from ' + name,
+          html: '<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">' +
+            '<h2 style="color:#c0392b;">New Message — The Asylum Website</h2>' +
+            '<table style="width:100%;border-collapse:collapse;">' +
+            '<tr><td style="padding:8px;color:#888;width:100px;">Topic</td><td style="padding:8px;font-weight:bold;">' + subject + '</td></tr>' +
+            '<tr><td style="padding:8px;color:#888;">From</td><td style="padding:8px;">' + name + '</td></tr>' +
+            '<tr><td style="padding:8px;color:#888;">Email</td><td style="padding:8px;"><a href="mailto:' + email + '">' + email + '</a></td></tr>' +
+            '</table>' +
+            '<div style="background:#f5f5f5;padding:1.5rem;margin-top:1rem;border-left:4px solid #c0392b;">' +
+            '<p style="margin:0;white-space:pre-wrap;">' + message + '</p>' +
+            '</div>' +
+            '<p style="color:#888;font-size:12px;margin-top:1rem;">Sent from the-asylum-website.vercel.app — reply directly to this email to respond to ' + name + '</p>' +
+            '</div>'
+        })
+      });
+    }
+
     res.json({ success: true });
   } catch (err) {
+    console.error('Contact error:', err);
     res.status(500).json({ error: 'Failed to send message.' });
   }
 });
