@@ -326,11 +326,8 @@
   <div class="page-header">
     <div class="page-header-text"><h1>SHOP</h1><p>Singles, sealed product, and more</p><div class="red-bar"></div></div>
   </div>
-  <div class="shop-grid">
-    <div class="shop-card"><div class="shop-card-img">CARD IMAGE</div><h3>Charizard ex — 151</h3><div class="meta">Pokémon TCG · NM/M</div><div class="price">$84</div><button class="btn-primary" style="width:100%;margin-top:1rem;padding:10px;" onclick="setOrderAndCheckout(84,'Charizard ex — 151')">Buy Now</button></div>
-    <div class="shop-card"><div class="shop-card-img">CARD IMAGE</div><h3>Luffy OP01-120 — SR</h3><div class="meta">One Piece TCG · NM/M</div><div class="price">$45</div><button class="btn-primary" style="width:100%;margin-top:1rem;padding:10px;" onclick="setOrderAndCheckout(45,'Luffy OP01-120 SR')">Buy Now</button></div>
-    <div class="shop-card"><div class="shop-card-img">CARD IMAGE</div><h3>Patrick Mahomes — 2020 Prizm</h3><div class="meta">Football · PSA 10</div><div class="price">$320</div><button class="btn-primary" style="width:100%;margin-top:1rem;padding:10px;" onclick="setOrderAndCheckout(320,'Mahomes 2020 Prizm PSA 10')">Buy Now</button></div>
-    <div class="shop-card"><div class="shop-card-img">CARD IMAGE</div><h3>Prismatic Evolutions ETB</h3><div class="meta">Pokémon Sealed · New</div><div class="price">$115</div><button class="btn-primary" style="width:100%;margin-top:1rem;padding:10px;" onclick="setOrderAndCheckout(115,'Prismatic Evolutions ETB')">Buy Now</button></div>
+  <div class="shop-grid" id="shop-grid">
+    <div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted);font-family:sans-serif;letter-spacing:3px;font-size:13px;text-transform:uppercase;">Loading shop items...</div>
   </div>
 </div>
 
@@ -1265,6 +1262,55 @@ async function lookupPSA() {
 // ─────────────────────────────────────────
 let liveBreaks = { hsa: [], ab: [] };
 
+async function loadShopItems() {
+  var grid = document.getElementById('shop-grid');
+  if (!grid) return;
+  try {
+    var res = await fetch('/api/shop');
+    var items = await res.json();
+    if (!items.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted);font-family:sans-serif;letter-spacing:3px;font-size:13px;text-transform:uppercase;">No items in stock right now. Check back soon!</div>';
+      return;
+    }
+    grid.innerHTML = '';
+    items.forEach(function(item) {
+      var card = document.createElement('div');
+      card.className = 'shop-card';
+      var img = document.createElement('div');
+      img.className = 'shop-card-img';
+      if (item.image_url) {
+        var imgEl = document.createElement('img');
+        imgEl.src = item.image_url;
+        imgEl.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+        img.appendChild(imgEl);
+      } else {
+        img.textContent = 'NO IMAGE';
+      }
+      var title = document.createElement('h3');
+      title.textContent = item.title;
+      var meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = (item.category || '') + (item.condition ? ' · ' + item.condition : '');
+      var price = document.createElement('div');
+      price.className = 'price';
+      price.textContent = '$' + parseFloat(item.price).toFixed(2);
+      var btn = document.createElement('button');
+      btn.className = 'btn-primary';
+      btn.style.cssText = 'width:100%;margin-top:1rem;padding:10px;';
+      btn.textContent = 'Buy Now';
+      btn.onclick = function() { setOrderAndCheckout(parseFloat(item.price), item.title); };
+      card.appendChild(img);
+      card.appendChild(title);
+      card.appendChild(meta);
+      card.appendChild(price);
+      card.appendChild(btn);
+      grid.appendChild(card);
+    });
+  } catch(e) {
+    if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted);">Could not load shop items.</div>';
+  }
+}
+
 async function loadBreaks() {
   try {
     const [hsaRes, abRes] = await Promise.all([
@@ -1433,12 +1479,23 @@ window.showPage = function (id) {
   if (_originalShowPage) _originalShowPage(id);
   if (id === 'account') renderAccountPage();
   if (id === 'breaks') {
-    // Show loading state first
     var container = document.getElementById('breaks-content');
     if (container) container.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--muted);font-size:13px;letter-spacing:3px;text-transform:uppercase;">Loading breaks...</div>';
     loadBreaks();
   }
+  if (id === 'shop') loadShopItems();
+  // Save page to URL hash so refresh restores it
+  window.location.hash = id;
 };
+
+// On page load, restore from hash
+document.addEventListener('DOMContentLoaded', function() {
+  var hash = window.location.hash.replace('#', '');
+  var validPages = ['home','breaks','shop','psa','about','contact','sms','account'];
+  if (hash && validPages.includes(hash)) {
+    setTimeout(function() { window.showPage(hash); }, 100);
+  }
+});
 
 // ─────────────────────────────────────────
 // MANUAL PAYMENT MODALS (Venmo/CashApp/Zelle)
@@ -1862,6 +1919,7 @@ window.openBreakEntry = function(breakId, breakName, price, breakType, sport) {
 // EXPOSE FUNCTIONS TO GLOBAL SCOPE
 // ─────────────────────────────────────────
 window.loadBreaks = loadBreaks;
+window.loadShopItems = loadShopItems;
 window.loadAccountAddress = loadAccountAddress;
 window.toggleAddressEdit = toggleAddressEdit;
 window.saveAddress = saveAddress;
