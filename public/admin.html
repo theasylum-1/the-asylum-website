@@ -623,11 +623,23 @@ async function addBreak() {
   var brand = document.getElementById('b-brand').value;
   var breakType = document.getElementById('b-type').value;
   var sport = document.getElementById('b-sport') ? document.getElementById('b-sport').value : null;
-  var price = parseFloat(document.getElementById('b-price').value);
+  var price = parseFloat(document.getElementById('b-price').value) || 0;
   var randomSpots = document.getElementById('b-spots').value;
 
-  if (!name||!date||!price) { showToast('Name, date and price required.', 'error'); return; }
+  if (!name||!date) { showToast('Name and date required.', 'error'); return; }
+  if (breakType !== 'pick_team' && !price) { showToast('Price is required.', 'error'); return; }
   if (breakType==='random_team' && !randomSpots) { showToast('Please enter number of spots for random break.', 'error'); return; }
+  if (breakType==='pick_team') {
+    // For pick_team, check at least some teams have prices set
+    var sport = document.getElementById('b-sport') ? document.getElementById('b-sport').value : '';
+    var teams = sport==='baseball'?MLB_TEAMS:sport==='football'?NFL_TEAMS:NBA_TEAMS;
+    var hasPrices = teams.some(function(t) {
+      var id = 'team-price-' + t.replace(/\s+/g,'-').replace(/[^a-zA-Z0-9-]/g,'');
+      var el = document.getElementById(id);
+      return el && parseFloat(el.value) > 0;
+    });
+    if (!hasPrices && !price) { showToast('Please set at least a base price or individual team prices.', 'error'); return; }
+  }
 
   var slots = getSlotsForBreak(breakType, sport, randomSpots);
   var totalSpots = slots.length;
