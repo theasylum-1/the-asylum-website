@@ -1781,7 +1781,7 @@ async function openBreakSlotPicker(breakId, breakName, price, breakType, sport) 
 
   var overlay = document.createElement('div');
   overlay.id = 'slot-picker-overlay';
-  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:300;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:2rem;';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:300;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:1rem;padding-top:env(safe-area-inset-top, 1rem);-webkit-overflow-scrolling:touch;';
 
   var loading = document.createElement('div');
   loading.style.cssText = 'color:var(--muted);font-family:sans-serif;letter-spacing:3px;text-transform:uppercase;font-size:13px;';
@@ -1802,12 +1802,12 @@ async function openBreakSlotPicker(breakId, breakName, price, breakType, sport) 
 
     // Build the box
     var box = document.createElement('div');
-    box.style.cssText = 'background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--red);padding:2rem;width:100%;max-width:700px;position:relative;';
+    box.style.cssText = 'background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--red);padding:1.5rem;width:100%;max-width:700px;position:relative;margin:auto;';
 
     // Close button
     var closeBtn = document.createElement('button');
     closeBtn.innerHTML = '&times;';
-    closeBtn.style.cssText = 'position:absolute;top:1rem;right:1rem;background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;line-height:1;';
+    closeBtn.style.cssText = 'position:absolute;top:0.75rem;right:0.75rem;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:20px;cursor:pointer;line-height:1;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;z-index:10;';
     closeBtn.onclick = function() { overlay.remove(); };
     box.appendChild(closeBtn);
 
