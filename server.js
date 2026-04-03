@@ -126,6 +126,45 @@ app.post('/api/auth/signup', async (req, res) => {
   }
 });
 
+
+// ─────────────────────────────────────────
+// AUTH — REQUEST PASSWORD RESET
+// ─────────────────────────────────────────
+app.post('/api/auth/reset-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email required.' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://the-asylum-website.vercel.app/#reset'
+    });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to send reset email.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// AUTH — UPDATE PASSWORD (after reset)
+// ─────────────────────────────────────────
+app.post('/api/auth/update-password', async (req, res) => {
+  const { access_token, new_password } = req.body;
+  if (!access_token || !new_password) return res.status(400).json({ error: 'Token and password required.' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: 'Bearer ' + access_token } }
+    });
+    const { error } = await supabase.auth.updateUser({ password: new_password });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update password.' });
+  }
+});
+
 // ─────────────────────────────────────────
 // AUTH — SIGN IN
 // ─────────────────────────────────────────
