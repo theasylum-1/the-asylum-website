@@ -538,10 +538,12 @@ app.post('/api/stripe/create-payment-intent', async (req, res) => {
     return res.status(400).json({ error: 'Invalid amount.' });
   }
   try {
+    const { customer_email, customer_name } = req.body;
     const paymentIntent = await getStripe().paymentIntents.create({
-      amount: Math.round(amount * 100), // Stripe uses cents
+      amount: Math.round(amount * 100),
       currency: 'usd',
-      metadata: { item_name, item_id, order_type }
+      receipt_email: customer_email || null,
+      metadata: { item_name, item_id, order_type, customer_email: customer_email || '', customer_name: customer_name || '' }
     });
     res.json({
       clientSecret: paymentIntent.client_secret,
@@ -621,11 +623,74 @@ app.post('/api/paypal/capture-order', async (req, res) => {
       }
     });
     const capture = await captureRes.json();
+
+    // Send confirmation email
+    const payer = capture.payer;
+    const unit = capture.purchase_units && capture.purchase_units[0];
+    if (payer && payer.email_address) {
+      await sendOrderConfirmation({
+        to: payer.email_address,
+        name: payer.name ? payer.name.given_name : '',
+        item: unit ? unit.description : 'Order',
+        amount: unit ? unit.amount.value : 0,
+        paymentMethod: 'PayPal',
+        orderId: orderID
+      });
+    }
+
     res.json({ success: true, capture });
   } catch (err) {
     res.status(500).json({ error: 'Failed to capture PayPal payment.' });
   }
 });
+
+
+// ─────────────────────────────────────────
+// SEND ORDER CONFIRMATION EMAIL
+// ─────────────────────────────────────────
+async function sendOrderConfirmation({ to, name, item, amount, paymentMethod, orderId }) {
+  if (!process.env.RESEND_API_KEY) return;
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + process.env.RESEND_API_KEY
+      },
+      body: JSON.stringify({
+        from: 'The Asylum <onboarding@resend.dev>',
+        to: [to],
+        reply_to: 'theasylumbranding@gmail.com',
+        subject: 'Order Confirmed — The Asylum',
+        html: `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#0a0a0a;color:#e8e0d8;padding:2rem;border-top:3px solid #e74c3c;">
+            <img src="https://the-asylum-website.vercel.app/images/img_001.png" alt="The Asylum" style="height:60px;margin-bottom:1.5rem;">
+            <h1 style="font-size:28px;letter-spacing:3px;margin-bottom:0.5rem;color:#e8e0d8;">ORDER CONFIRMED</h1>
+            <p style="color:#888;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin-bottom:2rem;">Thanks for your order, ${name || 'valued customer'}!</p>
+            <div style="background:#1f1f1f;border:1px solid #2a2a2a;border-left:3px solid #e74c3c;padding:1.25rem;margin-bottom:1.5rem;">
+              <table style="width:100%;border-collapse:collapse;">
+                <tr><td style="color:#888;font-size:12px;letter-spacing:2px;text-transform:uppercase;padding:6px 0;">Item</td><td style="color:#e8e0d8;font-size:14px;text-align:right;padding:6px 0;">${item}</td></tr>
+                <tr><td style="color:#888;font-size:12px;letter-spacing:2px;text-transform:uppercase;padding:6px 0;">Amount</td><td style="color:#e74c3c;font-size:18px;font-weight:700;text-align:right;padding:6px 0;">$${parseFloat(amount).toFixed(2)}</td></tr>
+                <tr><td style="color:#888;font-size:12px;letter-spacing:2px;text-transform:uppercase;padding:6px 0;">Payment</td><td style="color:#e8e0d8;font-size:14px;text-align:right;padding:6px 0;">${paymentMethod}</td></tr>
+                ${orderId ? `<tr><td style="color:#888;font-size:12px;letter-spacing:2px;text-transform:uppercase;padding:6px 0;">Order ID</td><td style="color:#555;font-size:12px;text-align:right;padding:6px 0;">${orderId}</td></tr>` : ''}
+              </table>
+            </div>
+            <p style="font-size:13px;color:#888;line-height:1.7;margin-bottom:1.5rem;">
+              We'll be in touch with shipping details. If you have any questions reach us at 
+              <a href="mailto:theasylumbranding@gmail.com" style="color:#e74c3c;">theasylumbranding@gmail.com</a> 
+              or on Discord.
+            </p>
+            <div style="border-top:1px solid #2a2a2a;padding-top:1rem;font-size:11px;color:#444;letter-spacing:2px;text-transform:uppercase;">
+              The Asylum · High St Asylum · Asylum Breaks
+            </div>
+          </div>
+        `
+      })
+    });
+  } catch (err) {
+    console.error('Order confirmation email failed:', err.message);
+  }
+}
 
 // ─────────────────────────────────────────
 // STRIPE WEBHOOK — record completed orders
@@ -649,6 +714,17 @@ app.post('/webhook', async (req, res) => {
       payment_status: 'paid',
       notes: pi.metadata.item_name || ''
     });
+    // Send confirmation email if we have customer email
+    if (pi.receipt_email || pi.metadata.customer_email) {
+      await sendOrderConfirmation({
+        to: pi.receipt_email || pi.metadata.customer_email,
+        name: pi.metadata.customer_name || '',
+        item: pi.metadata.item_name || 'Order',
+        amount: pi.amount / 100,
+        paymentMethod: 'Credit/Debit Card',
+        orderId: pi.id
+      });
+    }
   }
   res.json({ received: true });
 });

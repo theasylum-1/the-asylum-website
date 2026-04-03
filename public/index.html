@@ -1624,7 +1624,13 @@ async function initiateStripePayment() {
     const res = await fetch(API + '/api/stripe/create-payment-intent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount, item_name: itemName, order_type: 'shop' })
+      body: JSON.stringify({ 
+        amount, 
+        item_name: itemName, 
+        order_type: 'shop',
+        customer_email: currentUser ? currentUser.email : null,
+        customer_name: currentUser ? (currentUser.user_metadata?.full_name || '') : null
+      })
     });
     const data = await res.json();
     if (!res.ok) { showToast(data.error || 'Payment setup failed.', 'error'); return; }
