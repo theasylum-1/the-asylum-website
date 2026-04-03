@@ -62,7 +62,9 @@ app.get('/api/health', (req, res) => {
 // ─────────────────────────────────────────
 app.get('/api/profile/:user_id', async (req, res) => {
   try {
-    const { data, error } = await getSupabase()
+    const { createClient } = require('@supabase/supabase-js');
+    const adminDb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data, error } = await adminDb
       .from('user_profiles')
       .select('*')
       .eq('id', req.params.user_id)
@@ -81,7 +83,9 @@ app.post('/api/profile', async (req, res) => {
   const { user_id, full_name, phone, address_line1, address_line2, city, state, zip } = req.body;
   if (!user_id) return res.status(400).json({ error: 'User ID required.' });
   try {
-    const { data, error } = await getSupabase()
+    const { createClient } = require('@supabase/supabase-js');
+    const adminDb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data, error } = await adminDb
       .from('user_profiles')
       .upsert({ id: user_id, full_name, phone, address_line1, address_line2, city, state, zip, updated_at: new Date().toISOString() })
       .select().single();
