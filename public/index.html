@@ -358,6 +358,7 @@
     <li><a onclick="showPage('about')" id="nav-about">About</a></li>
     <li><a onclick="showPage('sms')" id="nav-sms" style="color:var(--red-bright);">&#128241; Text List</a></li>
     <li><a onclick="showPage('contact')" id="nav-contact">Contact</a></li>
+    <li><a onclick="showPage('news')" id="nav-news">News</a></li>
     <li><a onclick="showPage('account')" id="nav-account">Account</a></li>
   </ul>
   <button class="nav-btn" onclick="openModal('signup')">Sign Up</button>
@@ -478,6 +479,83 @@
     </div>
   </div>
 </div>
+
+
+<!-- NEWS PAGE -->
+<div id="page-news" class="page">
+  <div class="page-header">
+    <div class="page-header-text"><h1>HOBBY NEWS</h1><p>Latest from the hobby world</p><div class="red-bar"></div></div>
+  </div>
+  <div style="max-width:1000px;margin:0 auto;padding:2rem;">
+
+    <!-- USEFUL LINKS -->
+    <div class="section-label">Useful Links</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:1px;background:var(--border);margin-bottom:2.5rem;">
+      <a href="https://www.psacard.com" target="_blank" class="news-link-card">
+        <div class="news-link-icon">🏆</div>
+        <div class="news-link-title">PSA Grading</div>
+        <div class="news-link-sub">Submit & track grades</div>
+      </a>
+      <a href="https://www.tcgplayer.com" target="_blank" class="news-link-card">
+        <div class="news-link-icon">💰</div>
+        <div class="news-link-title">TCGPlayer</div>
+        <div class="news-link-sub">Card price guide</div>
+      </a>
+      <a href="https://www.beckett.com" target="_blank" class="news-link-card">
+        <div class="news-link-icon">📊</div>
+        <div class="news-link-title">Beckett</div>
+        <div class="news-link-sub">Sports card pricing</div>
+      </a>
+      <a href="https://www.pokebeach.com" target="_blank" class="news-link-card">
+        <div class="news-link-icon">⚡</div>
+        <div class="news-link-title">PokeBeach</div>
+        <div class="news-link-sub">Pokémon TCG news</div>
+      </a>
+      <a href="https://www.whatnot.com" target="_blank" class="news-link-card">
+        <div class="news-link-icon">📺</div>
+        <div class="news-link-title">Whatnot</div>
+        <div class="news-link-sub">Live selling platform</div>
+      </a>
+      <a href="https://discord.gg/vVJjMYTc9b" target="_blank" class="news-link-card">
+        <div class="news-link-icon">💬</div>
+        <div class="news-link-title">Our Discord</div>
+        <div class="news-link-sub">Join the community</div>
+      </a>
+      <a href="https://www.ebay.com/b/Trading-Card-Games/2536/bn_1648220" target="_blank" class="news-link-card">
+        <div class="news-link-icon">🛒</div>
+        <div class="news-link-title">eBay TCG</div>
+        <div class="news-link-sub">Market comps</div>
+      </a>
+      <a href="https://www.slabstox.com" target="_blank" class="news-link-card">
+        <div class="news-link-icon">📈</div>
+        <div class="news-link-title">Slabstox</div>
+        <div class="news-link-sub">Graded card market</div>
+      </a>
+    </div>
+
+    <!-- NEWS FEED -->
+    <div class="section-label">Latest Hobby News</div>
+    <div id="news-feed">
+      <div style="text-align:center;padding:3rem;color:var(--muted);font-size:13px;letter-spacing:3px;text-transform:uppercase;">Loading news...</div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .news-link-card { background:var(--card); padding:1.25rem; text-decoration:none; display:block; transition:background 0.2s; }
+  .news-link-card:hover { background:var(--surface); }
+  .news-link-icon { font-size:24px; margin-bottom:0.5rem; }
+  .news-link-title { font-family:sans-serif; font-size:14px; font-weight:700; color:var(--text); letter-spacing:1px; margin-bottom:3px; }
+  .news-link-sub { font-size:11px; color:var(--muted); letter-spacing:1px; }
+  .news-item { background:var(--card); border:1px solid var(--border); padding:1.25rem 1.5rem; margin-bottom:1px; transition:background 0.2s; }
+  .news-item:hover { background:var(--surface); }
+  .news-item a { text-decoration:none; }
+  .news-item-source { font-family:sans-serif; font-size:11px; font-weight:700; letter-spacing:3px; text-transform:uppercase; color:var(--red-bright); margin-bottom:0.4rem; }
+  .news-item-title { font-size:15px; font-weight:600; color:var(--text); margin-bottom:0.4rem; line-height:1.4; }
+  .news-item-title:hover { color:var(--red-bright); }
+  .news-item-desc { font-size:12px; color:var(--muted); line-height:1.6; margin-bottom:0.4rem; }
+  .news-item-date { font-size:11px; color:#555; letter-spacing:1px; }
+</style>
 
 <!-- RESET PASSWORD PAGE -->
 <div id="page-reset" class="page">
@@ -1558,6 +1636,7 @@ window.showPage = function (id) {
     loadBreaks();
   }
   if (id === 'shop') loadShopItems();
+  if (id === 'news') loadNews();
   // Save page to URL hash so refresh restores it
   window.location.hash = id;
 };
@@ -1565,7 +1644,7 @@ window.showPage = function (id) {
 // On page load, restore from hash
 document.addEventListener('DOMContentLoaded', function() {
   var hash = window.location.hash.replace('#', '');
-  var validPages = ['home','breaks','shop','psa','about','contact','sms','account','reset'];
+  var validPages = ['home','breaks','shop','psa','about','contact','sms','account','reset','news'];
   if (hash && validPages.includes(hash)) {
     setTimeout(function() { window.showPage(hash); }, 100);
   }
@@ -1574,7 +1653,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Handle browser back/forward buttons
 window.addEventListener('hashchange', function() {
   var hash = window.location.hash.replace('#', '');
-  var validPages = ['home','breaks','shop','psa','about','contact','sms','account','reset'];
+  var validPages = ['home','breaks','shop','psa','about','contact','sms','account','reset','news'];
   if (hash && validPages.includes(hash)) {
     // Call original showPage to avoid double hash writing
     if (_originalShowPage) _originalShowPage(hash);
@@ -2077,8 +2156,33 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
+async function loadNews() {
+  var feed = document.getElementById('news-feed');
+  if (!feed) return;
+  try {
+    var res = await fetch('/api/news');
+    var items = await res.json();
+    if (!items.length) {
+      feed.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--muted);font-size:13px;letter-spacing:3px;text-transform:uppercase;">No news available right now. Check back soon.</div>';
+      return;
+    }
+    feed.innerHTML = items.map(function(item) {
+      var date = item.pubDate ? new Date(item.pubDate).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : '';
+      return '<div class="news-item">' +
+        '<div class="news-item-source">' + item.source + '</div>' +
+        '<a href="' + item.link + '" target="_blank" rel="noopener noreferrer" class="news-item-title">' + item.title + '</a>' +
+        (item.description ? '<div class="news-item-desc">' + item.description + '...</div>' : '') +
+        (date ? '<div class="news-item-date">' + date + '</div>' : '') +
+        '</div>';
+    }).join('');
+  } catch(e) {
+    feed.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--muted);">Could not load news. Please try again later.</div>';
+  }
+}
+
 window.loadBreaks = loadBreaks;
 window.loadShopItems = loadShopItems;
+window.loadNews = loadNews;
 window.toggleMobileNav = toggleMobileNav;
 window.loadAccountAddress = loadAccountAddress;
 window.toggleAddressEdit = toggleAddressEdit;

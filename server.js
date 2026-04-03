@@ -891,6 +891,60 @@ app.post('/api/sms-subscribe', async (req, res) => {
   }
 });
 
+
+// ─────────────────────────────────────────
+// HOBBY NEWS — RSS AGGREGATOR
+// ─────────────────────────────────────────
+app.get('/api/news', async (req, res) => {
+  const feeds = [
+    { url: 'https://www.pokebeach.com/feed', label: 'Pokémon TCG' },
+    { url: 'https://www.sportscollectorsdaily.com/feed/', label: 'Sports Cards' },
+    { url: 'https://blog.psacard.com/feed/', label: 'PSA' },
+    { url: 'https://bleedingcool.com/games/card-games/feed/', label: 'Card Games' },
+    { url: 'https://www.beckett.com/news/feed/', label: 'Beckett' },
+  ];
+
+  async function parseFeed(url, label) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0' } });
+      clearTimeout(timeout);
+      const xml = await res.text();
+
+      const items = [];
+      const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/gi;
+      let match;
+      while ((match = itemRegex.exec(xml)) !== null && items.length < 5) {
+        const item = match[1];
+        const title = (item.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/) || item.match(/<title>(.*?)<\/title>/))?.[1] || '';
+        const link = (item.match(/<link>(.*?)<\/link>/) || item.match(/<guid[^>]*>(https?:\/\/[^<]+)<\/guid>/))?.[1] || '';
+        const pubDate = (item.match(/<pubDate>(.*?)<\/pubDate>/))?.[1] || '';
+        const desc = (item.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/) || item.match(/<description>(.*?)<\/description>/))?.[1] || '';
+        const cleanDesc = desc.replace(/<[^>]+>/g, '').slice(0, 150).trim();
+        if (title && link) items.push({ title: title.trim(), link: link.trim(), pubDate, description: cleanDesc, source: label });
+      }
+      return items;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  try {
+    const results = await Promise.all(feeds.map(f => parseFeed(f.url, f.label)));
+    let all = results.flat();
+    // Sort by date, most recent first
+    all.sort(function(a, b) {
+      return new Date(b.pubDate || 0) - new Date(a.pubDate || 0);
+    });
+    // Limit to 30 items
+    all = all.slice(0, 30);
+    res.json(all);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load news.' });
+  }
+});
+
 // ─────────────────────────────────────────
 // CONTACT FORM
 // ─────────────────────────────────────────
