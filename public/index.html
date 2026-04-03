@@ -40,7 +40,7 @@
   .btn-outline:hover { border-color:var(--red); color:var(--red-bright); }
 
   /* SMS BANNER */
-  .sms-banner { background:linear-gradient(90deg,#1a0505,#2a0808,#1a0505); border-top:1px solid var(--red-glow); border-bottom:1px solid var(--red-glow); padding:0.85rem 2rem; display:flex; align-items:center; justify-content:center; gap:1.5rem; flex-wrap:wrap; }
+  .sms-banner { background:linear-gradient(90deg,#1a0505,#2a0808,#1a0505); border-top:1px solid var(--red-glow); border-bottom:1px solid var(--red-glow); padding:0.85rem 1.25rem; display:flex; align-items:center; justify-content:center; gap:1rem; flex-wrap:wrap; text-align:center; }
   .sms-banner-text { font-family:'Barlow Condensed',sans-serif; font-size:14px; letter-spacing:2px; text-transform:uppercase; color:var(--text); }
   .sms-banner-text span { color:var(--red-bright); font-weight:700; }
   .sms-banner-btn { background:var(--red); color:#fff; border:none; padding:7px 20px; font-family:'Barlow Condensed',sans-serif; font-size:12px; font-weight:700; letter-spacing:3px; text-transform:uppercase; cursor:pointer; transition:background 0.2s; white-space:nowrap; }
@@ -246,6 +246,11 @@
     .hamburger.open span:nth-child(2) { opacity: 0; }
     .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
 
+    /* SMS BANNER */
+    .sms-banner { flex-direction: column; gap: 0.75rem; padding: 1rem; }
+    .sms-banner-text { font-size: 12px; text-align: center; }
+    .sms-banner-btn { width: 100%; max-width: 240px; }
+
     /* HERO */
     .hero { min-height: 380px; padding: 2.5rem 1.25rem; }
     .hero-logo { height: 120px; }
@@ -370,7 +375,7 @@
       <div class="hero-eyebrow">Welcome to</div>
       <img class="hero-logo" src="/images/img_002.png" alt="The Asylum">
       <div class="hero-sub">TCG · Sports Cards · Breaks · Grading</div>
-      <p class="hero-desc">Your home for trading card breaks, grading submissions, and community. Built for the hobby, run by collectors.</p>
+      <p class="hero-desc">Your home for breaks, grading submissions, and community. Built for the hobby, run by collectors.</p>
       <div class="hero-btns">
         <button class="btn-primary" onclick="showPage('breaks')">View Breaks</button>
         <button class="btn-outline" onclick="openModal('signup')">Join the Asylum</button>
