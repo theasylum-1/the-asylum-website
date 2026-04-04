@@ -465,6 +465,8 @@ function renderTeamPriceGrid() {
 }
 
 async function viewSlots(breakId, breakType, sport) {
+  window.currentBreakType = breakType;
+  window.currentBreakSport = sport;
   document.getElementById('slots-modal').classList.add('open');
   document.getElementById('slots-modal-content').innerHTML = '<p style="color:var(--muted);padding:1rem;">Loading slots...</p>';
   
@@ -492,10 +494,24 @@ async function viewSlots(breakId, breakType, sport) {
     } else {
       html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;">';
       slots.forEach(function(s) {
-        html += '<div style="background:' + (s.is_taken?'#2a0a0a':'#1a2a1a') + ';border:1px solid ' + (s.is_taken?'#4a1a1a':'#2d4a2d') + ';padding:0.75rem;text-align:center;">';
-        html += '<div style="font-family:sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;color:' + (s.is_taken?'var(--red-bright)':'var(--green)') + ';">' + s.slot_name + '</div>';
-        if (s.is_taken && s.buyer_name) html += '<div style="font-size:11px;color:var(--muted);margin-top:4px;">' + s.buyer_name + '</div>';
-        if (s.is_taken) html += '<button onclick="resetSlot(\'' + breakId + '\',\'' + s.id + '\')" style="margin-top:6px;background:none;border:1px solid #4a1a1a;color:var(--red-bright);padding:3px 8px;font-family:sans-serif;font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;">Reset</button>';
+        var slotStatus = s.status || (s.is_taken ? 'taken' : 'available');
+        var bgColor = slotStatus==='taken'?'#2a0a0a':slotStatus==='payment_sent'?'#2a1f00':slotStatus==='pending'?'#1a1a2a':'#1a2a1a';
+        var borderColor = slotStatus==='taken'?'#4a1a1a':slotStatus==='payment_sent'?'#4a3500':slotStatus==='pending'?'#2a2a4a':'#2d4a2d';
+        var textColor = slotStatus==='taken'?'var(--red-bright)':slotStatus==='payment_sent'?'#d4a843':slotStatus==='pending'?'#5b9cf6':'var(--green)';
+        var statusLabel = slotStatus==='taken'?'TAKEN':slotStatus==='payment_sent'?'PAYMENT SENT':slotStatus==='pending'?'PENDING':'OPEN';
+
+        html += '<div style="background:' + bgColor + ';border:1px solid ' + borderColor + ';padding:0.75rem;text-align:center;">';
+        html += '<div style="font-family:sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;color:' + textColor + ';">' + s.slot_name + '</div>';
+        html += '<div style="font-size:10px;color:' + textColor + ';opacity:0.7;letter-spacing:1px;margin-top:2px;">' + statusLabel + '</div>';
+        if (s.buyer_name || s.pending_buyer) html += '<div style="font-size:11px;color:var(--muted);margin-top:4px;">' + (s.buyer_name||s.pending_buyer) + '</div>';
+        if (slotStatus === 'payment_sent') {
+          html += '<button onclick="confirmSlotPayment(\'' + breakId + '\',\'' + s.id + '\')" style="margin-top:6px;background:#27ae60;border:none;color:#fff;padding:3px 8px;font-family:sans-serif;font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;width:100%;">✓ Confirm Paid</button>';
+          html += '<button onclick="resetSlot(\'' + breakId + '\',\'' + s.id + '\')" style="margin-top:3px;background:none;border:1px solid #4a1a1a;color:var(--red-bright);padding:3px 8px;font-family:sans-serif;font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;width:100%;">Release</button>';
+        } else if (slotStatus === 'pending') {
+          html += '<button onclick="resetSlot(\'' + breakId + '\',\'' + s.id + '\')" style="margin-top:6px;background:none;border:1px solid #4a1a1a;color:var(--red-bright);padding:3px 8px;font-family:sans-serif;font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;width:100%;">Release</button>';
+        } else if (slotStatus === 'taken') {
+          html += '<button onclick="resetSlot(\'' + breakId + '\',\'' + s.id + '\')" style="margin-top:6px;background:none;border:1px solid #4a1a1a;color:var(--red-bright);padding:3px 8px;font-family:sans-serif;font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;">Reset</button>';
+        }
         html += '</div>';
       });
       html += '</div>';
@@ -507,11 +523,22 @@ async function viewSlots(breakId, breakType, sport) {
 }
 
 async function resetSlot(breakId, slotId) {
-  if (!confirm('Reset this slot? The buyer will lose their spot.')) return;
+  if (!confirm('Release this slot? The buyer will lose their spot.')) return;
   try {
     var res = await fetch('/api/breaks/' + breakId + '/slots/reset', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({slot_id:slotId, admin_key:ADMIN_KEY}) });
-    if (res.ok) { showToast('Slot reset!', 'success'); viewSlots(breakId); loadBreaks(); }
+    if (res.ok) { showToast('Slot released!', 'success'); viewSlots(breakId, currentBreakType, currentBreakSport); loadBreaks(); }
   } catch(e) { showToast('Reset failed.', 'error'); }
+}
+
+async function confirmSlotPayment(breakId, slotId) {
+  try {
+    var res = await fetch('/api/breaks/' + breakId + '/slots/confirm-payment', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ slot_ids: [slotId], admin_key: ADMIN_KEY })
+    });
+    if (res.ok) { showToast('Payment confirmed! Slot marked as taken.', 'success'); viewSlots(breakId, currentBreakType, currentBreakSport); loadBreaks(); }
+    else { showToast('Failed to confirm.', 'error'); }
+  } catch(e) { showToast('Failed.', 'error'); }
 }
 
 function getSlotsForBreak(breakType, sport, randomSpots) {

@@ -338,7 +338,7 @@ app.get('/api/breaks/:id/slots', async (req, res) => {
 // BREAK SLOTS — CLAIM A SLOT
 // ─────────────────────────────────────────
 app.post('/api/breaks/:id/slots/claim', async (req, res) => {
-  const { slot_ids, buyer_name, user_id } = req.body;
+  const { slot_ids, buyer_name, user_id, payment_method, status } = req.body;
   if (!slot_ids || !slot_ids.length) return res.status(400).json({ error: 'No slots selected.' });
   try {
     const supabase = getSupabase();
@@ -346,23 +346,73 @@ app.post('/api/breaks/:id/slots/claim', async (req, res) => {
     const { data: slots, error: fetchErr } = await supabase
       .from('break_slots').select('*').in('id', slot_ids);
     if (fetchErr) return res.status(500).json({ error: fetchErr.message });
-    const taken = slots.filter(function(s) { return s.is_taken; });
-    if (taken.length) return res.status(409).json({ error: 'Some slots already taken: ' + taken.map(function(s){return s.slot_name;}).join(', ') });
-    // Claim them
+    const taken = slots.filter(function(s) { return s.is_taken || s.status === 'taken' || s.status === 'pending' || s.status === 'payment_sent'; });
+    if (taken.length) return res.status(409).json({ error: 'Some slots are no longer available: ' + taken.map(function(s){return s.slot_name;}).join(', ') });
+
+    // Determine final status
+    const slotStatus = status || 'taken';
+    const isTaken = slotStatus === 'taken';
+
     const { error: updateErr } = await supabase
       .from('break_slots')
-      .update({ is_taken: true, buyer_name: buyer_name || null, user_id: user_id || null })
+      .update({
+        is_taken: isTaken,
+        status: slotStatus,
+        buyer_name: buyer_name || null,
+        user_id: user_id || null,
+        pending_buyer: buyer_name || null,
+        pending_at: new Date().toISOString()
+      })
       .in('id', slot_ids);
     if (updateErr) return res.status(500).json({ error: updateErr.message });
-    // Update filled_spots on break
+
+    // Update filled_spots on break only if fully taken
+    if (isTaken) {
+      const { data: breakData } = await supabase.from('breaks').select('filled_spots').eq('id', req.params.id).single();
+      if (breakData) {
+        await supabase.from('breaks').update({ filled_spots: (breakData.filled_spots || 0) + slot_ids.length }).eq('id', req.params.id);
+      }
+    }
+    res.json({ success: true, claimed: slot_ids.length, status: slotStatus });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to claim slots.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// BREAK SLOTS — CONFIRM PAYMENT (mark taken)
+// ─────────────────────────────────────────
+app.post('/api/breaks/:id/slots/confirm-payment', async (req, res) => {
+  const { slot_ids, admin_key } = req.body;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  try {
+    const supabase = getSupabase();
+    const { error } = await supabase.from('break_slots')
+      .update({ is_taken: true, status: 'taken' })
+      .in('id', slot_ids);
+    if (error) return res.status(500).json({ error: error.message });
+    // Update filled_spots
     const { data: breakData } = await supabase.from('breaks').select('filled_spots').eq('id', req.params.id).single();
     if (breakData) {
       await supabase.from('breaks').update({ filled_spots: (breakData.filled_spots || 0) + slot_ids.length }).eq('id', req.params.id);
     }
-    res.json({ success: true, claimed: slot_ids.length });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to claim slots.' });
-  }
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Failed to confirm payment.' }); }
+});
+
+// ─────────────────────────────────────────
+// BREAK SLOTS — RELEASE PENDING SLOT (admin)
+// ─────────────────────────────────────────
+app.post('/api/breaks/:id/slots/release', async (req, res) => {
+  const { slot_id, admin_key } = req.body;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  try {
+    const supabase = getSupabase();
+    await supabase.from('break_slots')
+      .update({ is_taken: false, status: 'available', buyer_name: null, user_id: null, pending_buyer: null, pending_at: null })
+      .eq('id', slot_id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Failed to release slot.' }); }
 });
 
 // ─────────────────────────────────────────

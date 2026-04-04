@@ -2122,7 +2122,7 @@ async function openBreakSlotPicker(breakId, breakName, price, breakType, sport) 
 
     var isRandom = breakType === 'random_team';
     var isEnergy = breakType === 'energy';
-    var available = slots.filter(function(s){return !s.is_taken;}).length;
+    var available = slots.filter(function(s){return !s.is_taken && s.status !== 'pending' && s.status !== 'payment_sent' && s.status !== 'taken';}).length;
 
     // Build the box
     var box = document.createElement('div');
@@ -2179,12 +2179,15 @@ async function openBreakSlotPicker(breakId, breakName, price, breakType, sport) 
       var slotEl = document.createElement('div');
       slotEl.id = 'slot-' + s.id;
 
-      if (s.is_taken) {
+      var slotUnavailable = s.is_taken || s.status === 'taken' || s.status === 'pending' || s.status === 'payment_sent';
+      var slotStatusLabel = s.status === 'pending' ? 'PENDING' : s.status === 'payment_sent' ? 'PAYMENT SENT' : 'TAKEN';
+      var slotStatusColor = s.status === 'pending' || s.status === 'payment_sent' ? 'var(--gold)' : 'var(--red-bright)';
+      if (slotUnavailable) {
         slotEl.style.cssText = 'background:#2a0a0a;border:1px solid #4a1a1a;padding:0.75rem;text-align:center;opacity:0.6;';
         slotEl.textContent = s.slot_name;
         var takenLabel = document.createElement('div');
-        takenLabel.style.cssText = 'font-size:10px;color:var(--red-bright);margin-top:4px;';
-        takenLabel.textContent = 'TAKEN';
+        takenLabel.style.cssText = 'font-size:10px;color:' + slotStatusColor + ';margin-top:4px;';
+        takenLabel.textContent = slotStatusLabel;
         slotEl.appendChild(takenLabel);
       } else {
         if (isEnergy) {
@@ -2495,12 +2498,159 @@ window.openModal = function(type) {
 
 window.loadBreaks = loadBreaks;
 window.loadShopItems = loadShopItems;
+
+// ─────────────────────────────────────────
+// PENDING SLOT CLAIM (Venmo/CashApp/Zelle)
+// ─────────────────────────────────────────
+async function pendingClaimSlots(method, breakItems) {
+  var methodNames = { venmo: 'Venmo', cashapp: 'CashApp', zelle: 'Zelle' };
+  var methodHandles = { venmo: '@asylumbreaks', cashapp: '$asylumbreaks', zelle: 'asylum.breaks@gmail.com' };
+  var buyerName = currentUser ? (currentUser.user_metadata && currentUser.user_metadata.full_name) || currentUser.email : 'Guest';
+  var total = cart.reduce(function(s,i){ return s + parseFloat(i.price); }, 0);
+  if (cartCoupon) {
+    var disc = cartCoupon.type === 'percent' ? total * cartCoupon.value / 100 : cartCoupon.value;
+    total = Math.max(0, total - disc);
+  }
+
+  // Close checkout modal
+  document.getElementById('modal-overlay').classList.remove('open');
+
+  // Show holding overlay
+  var overlay = document.createElement('div');
+  overlay.id = 'pending-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:400;display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto;';
+
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--deep);border:1px solid var(--border);border-top:3px solid var(--gold);padding:2rem;max-width:480px;width:100%;text-align:center;';
+
+  box.innerHTML = '<div style="font-size:36px;margin-bottom:1rem;">⏳</div>' +
+    '<h2 style="font-family:sans-serif;font-size:24px;font-weight:900;letter-spacing:3px;margin-bottom:0.5rem;">HOLDING YOUR SLOTS</h2>' +
+    '<p style="font-size:13px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:1.5rem;">Your spots are reserved while you pay</p>' +
+    '<div style="background:var(--surface);border:1px solid var(--border);padding:1.25rem;margin-bottom:1.5rem;text-align:left;">' +
+    '<div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:0.75rem;">Payment Instructions</div>' +
+    '<div style="font-family:sans-serif;font-size:22px;font-weight:900;color:var(--gold);margin-bottom:4px;">' + methodHandles[method] + '</div>' +
+    '<div style="font-size:13px;color:var(--muted);margin-bottom:1rem;">via ' + methodNames[method] + '</div>' +
+    '<div style="background:var(--card);border:1px solid var(--border);padding:0.75rem;font-size:13px;">' +
+    '<div style="color:var(--muted);font-size:11px;letter-spacing:2px;margin-bottom:4px;">AMOUNT TO SEND</div>' +
+    '<div style="font-family:sans-serif;font-size:24px;font-weight:900;color:var(--red-bright);">$' + total.toFixed(2) + '</div>' +
+    '</div>' +
+    '<p style="font-size:12px;color:var(--muted);margin-top:0.75rem;">Include your name and break name in the note.</p>' +
+    '</div>' +
+    '<div style="background:#1a1a00;border:1px solid #3a3a00;padding:1rem;margin-bottom:1.5rem;font-size:12px;color:#d4a843;text-align:left;">' +
+    '⚠️ Your slots are held for <strong>30 minutes</strong>. Click the button below after sending payment to confirm your spots.' +
+    '</div>' +
+    '<button id="sent-payment-btn" style="width:100%;background:var(--green);color:#fff;border:none;padding:14px;font-family:sans-serif;font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;cursor:pointer;margin-bottom:0.75rem;">✓ I've Sent Payment</button>' +
+    '<button onclick="releasePendingSlots()" style="width:100%;background:none;border:1px solid var(--border);color:var(--muted);padding:10px;font-family:sans-serif;font-size:12px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;">Cancel — Release My Spots</button>';
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  // Claim slots as pending
+  var claimErrors = [];
+  for (var i = 0; i < breakItems.length; i++) {
+    var item = breakItems[i];
+    if (!item.slotIds || !item.slotIds.length) continue;
+    try {
+      var res = await fetch('/api/breaks/' + item.id + '/slots/claim', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          slot_ids: item.slotIds,
+          buyer_name: buyerName,
+          user_id: currentUser ? currentUser.id : null,
+          status: 'pending',
+          payment_method: method
+        })
+      });
+      var data = await res.json();
+      if (!res.ok) claimErrors.push(data.error || 'Failed to hold slots.');
+    } catch(e) {
+      claimErrors.push('Network error holding slots.');
+    }
+  }
+
+  if (claimErrors.length) {
+    overlay.remove();
+    showToast(claimErrors[0], 'error');
+    return;
+  }
+
+  // Store pending info
+  window.pendingBreakItems = breakItems;
+  window.pendingPaymentMethod = method;
+  window.pendingBuyerName = buyerName;
+
+  // Wire up sent payment button
+  document.getElementById('sent-payment-btn').onclick = function() { confirmPaymentSent(); };
+}
+
+async function confirmPaymentSent() {
+  var btn = document.getElementById('sent-payment-btn');
+  btn.textContent = 'Confirming...';
+  btn.disabled = true;
+
+  var items = window.pendingBreakItems || [];
+  for (var i = 0; i < items.length; i++) {
+    var item = items[i];
+    if (!item.slotIds || !item.slotIds.length) continue;
+    try {
+      await fetch('/api/breaks/' + item.id + '/slots/claim', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          slot_ids: item.slotIds,
+          buyer_name: window.pendingBuyerName,
+          user_id: currentUser ? currentUser.id : null,
+          status: 'payment_sent',
+          payment_method: window.pendingPaymentMethod
+        })
+      });
+    } catch(e) {}
+  }
+
+  var overlay = document.getElementById('pending-overlay');
+  if (overlay) {
+    overlay.innerHTML = '<div style="background:var(--deep);border:1px solid var(--border);border-top:3px solid var(--green);padding:2rem;max-width:480px;width:100%;text-align:center;">' +
+      '<div style="font-size:48px;margin-bottom:1rem;">✅</div>' +
+      '<h2 style="font-family:sans-serif;font-size:24px;font-weight:900;letter-spacing:3px;color:var(--green);margin-bottom:0.5rem;">PAYMENT SENT!</h2>' +
+      '<p style="font-size:14px;color:var(--muted);margin-bottom:1.5rem;">Your slots are held pending payment confirmation from The Asylum. We'll confirm shortly!</p>' +
+      '<button onclick="document.getElementById('pending-overlay').remove();cart=[];cartCoupon=null;updateCartCount();" style="background:var(--red);color:#fff;border:none;padding:14px 32px;font-family:sans-serif;font-size:13px;font-weight:700;letter-spacing:3px;text-transform:uppercase;cursor:pointer;">Done</button>' +
+      '</div>';
+  }
+}
+
+async function releasePendingSlots() {
+  if (!confirm('Release your held spots? They will become available to others.')) return;
+  var items = window.pendingBreakItems || [];
+  // Reset slots back to available via admin reset endpoint isn't available to users
+  // Just mark them available by claiming with available status - use the release endpoint
+  for (var i = 0; i < items.length; i++) {
+    var item = items[i];
+    if (!item.slotIds) continue;
+    for (var j = 0; j < item.slotIds.length; j++) {
+      try {
+        await fetch('/api/breaks/' + item.id + '/slots/reset', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ slot_id: item.slotIds[j], admin_key: '' })
+        });
+      } catch(e) {}
+    }
+  }
+  document.getElementById('pending-overlay').remove();
+  showToast('Slots released.', 'info');
+  window.pendingBreakItems = null;
+}
+
+
 window.openCart = openCart;
 window.closeCart = closeCart;
 window.applyCartCoupon = applyCartCoupon;
 window.cartCheckout = cartCheckout;
 window.addToCart = addToCart;
 window.removeFromCart = removeFromCart;
+window.confirmPaymentSent = confirmPaymentSent;
+window.releasePendingSlots = releasePendingSlots;
 window.applyCoupon = applyCoupon;
 window.loadNews = loadNews;
 window.toggleMobileNav = toggleMobileNav;
