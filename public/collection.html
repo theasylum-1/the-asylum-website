@@ -392,13 +392,32 @@ var editingId = null;
 var sellItemId = null;
 
 async function init() {
-  // Find Supabase session in localStorage
+  // Check asylum_session key (custom format used by main site)
   var session = null;
-  for (var i = 0; i < localStorage.length; i++) {
-    var key = localStorage.key(i);
-    if (key && key.includes('supabase') && key.includes('auth')) {
-      try { session = JSON.parse(localStorage.getItem(key)); break; } catch(e) {}
+  try {
+    var raw = localStorage.getItem('asylum_session');
+    if (raw) session = JSON.parse(raw);
+  } catch(e) {}
+
+  // Fallback: check Supabase default key format
+  if (!session || !session.user) {
+    for (var i = 0; i < localStorage.length; i++) {
+      var key = localStorage.key(i);
+      if (key && key.includes('supabase') && key.includes('auth')) {
+        try { var s = JSON.parse(localStorage.getItem(key)); if (s && s.user) { session = s; break; } } catch(e) {}
+      }
     }
+  }
+
+  // Also check asylum_user directly
+  if (!session || !session.user) {
+    try {
+      var userRaw = localStorage.getItem('asylum_user');
+      if (userRaw) {
+        var u = JSON.parse(userRaw);
+        if (u && u.id) session = { user: u };
+      }
+    } catch(e) {}
   }
 
   if (session && session.user) {
