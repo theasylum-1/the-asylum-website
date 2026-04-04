@@ -122,6 +122,64 @@ app.post('/api/auth/signup', async (req, res) => {
       await getSupabase().from('user_profiles').upsert({
         id: data.user.id, full_name, phone: phone || null
       });
+
+      // Send welcome email
+      if (process.env.RESEND_API_KEY) {
+        try {
+          await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + process.env.RESEND_API_KEY
+            },
+            body: JSON.stringify({
+              from: 'The Asylum <onboarding@resend.dev>',
+              to: [email],
+              reply_to: 'theasylumbranding@gmail.com',
+              subject: 'Welcome to The Asylum Collective',
+              html: `
+                <div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#0a0a0a;color:#e8e0d8;padding:2rem;border-top:3px solid #e74c3c;">
+                  <img src="https://theasylumcollective.com/images/img_001.png" alt="The Asylum" style="height:60px;margin-bottom:1.5rem;">
+                  <h1 style="font-size:32px;letter-spacing:4px;margin-bottom:0.5rem;color:#e8e0d8;">WELCOME TO<br>THE ASYLUM</h1>
+                  <p style="color:#888;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin-bottom:2rem;">Hey ${full_name || 'collector'}, you're officially in.</p>
+
+                  <div style="background:#1f1f1f;border:1px solid #2a2a2a;border-left:3px solid #e74c3c;padding:1.5rem;margin-bottom:1.5rem;">
+                    <p style="font-size:14px;color:#e8e0d8;line-height:1.7;margin-bottom:1rem;">
+                      You now have access to everything The Asylum has to offer — breaks, the shop, PSA submission tracking, The Vault collection tracker, and more.
+                    </p>
+                    <p style="font-size:14px;color:#e8e0d8;line-height:1.7;">
+                      As a welcome gift, use code below for <strong style="color:#e74c3c;">10% off</strong> your first order:
+                    </p>
+                  </div>
+
+                  <div style="background:#1a0a0a;border:2px dashed #e74c3c;padding:1.5rem;text-align:center;margin-bottom:1.5rem;">
+                    <div style="font-size:11px;letter-spacing:4px;text-transform:uppercase;color:#888;margin-bottom:0.5rem;">Your Welcome Coupon</div>
+                    <div style="font-family:monospace;font-size:32px;font-weight:900;color:#e74c3c;letter-spacing:6px;">ASYLUM10</div>
+                    <div style="font-size:12px;color:#666;margin-top:0.5rem;">10% off anything in the shop or breaks</div>
+                  </div>
+
+                  <div style="display:grid;margin-bottom:1.5rem;">
+                    <a href="https://theasylumcollective.com/#breaks" style="display:block;background:#e74c3c;color:#fff;text-align:center;padding:14px;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">View Upcoming Breaks</a>
+                    <a href="https://theasylumcollective.com/collection.html" style="display:block;background:#1f1f1f;border:1px solid #2a2a2a;color:#e8e0d8;text-align:center;padding:14px;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:3px;text-transform:uppercase;">Open The Vault</a>
+                  </div>
+
+                  <p style="font-size:13px;color:#888;line-height:1.7;margin-bottom:1.5rem;">
+                    Join our Discord community to stay up to date with break schedules, drops, and giveaways.
+                    <a href="https://discord.gg/vVJjMYTc9b" style="color:#e74c3c;">Join the Discord →</a>
+                  </p>
+
+                  <div style="border-top:1px solid #2a2a2a;padding-top:1rem;font-size:11px;color:#444;letter-spacing:2px;text-transform:uppercase;">
+                    The Asylum Collective · theasylumcollective.com<br>
+                    <a href="mailto:theasylumbranding@gmail.com" style="color:#555;">theasylumbranding@gmail.com</a>
+                  </div>
+                </div>
+              `
+            })
+          });
+        } catch(emailErr) {
+          console.error('Welcome email failed:', emailErr.message);
+        }
+      }
     }
 
     res.json({ success: true, user: data.user });
