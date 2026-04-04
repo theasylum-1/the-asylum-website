@@ -892,6 +892,272 @@ app.post('/api/sms-subscribe', async (req, res) => {
 });
 
 
+
+// ─────────────────────────────────────────
+// COLLECTION — GET ALL ITEMS
+// ─────────────────────────────────────────
+app.get('/api/collection/:user_id', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data, error } = await db
+      .from('collection_items')
+      .select('*')
+      .eq('user_id', req.params.user_id)
+      .eq('is_sold', false)
+      .order('created_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load collection.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// COLLECTION — GET SOLD ITEMS
+// ─────────────────────────────────────────
+app.get('/api/collection/:user_id/sold', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data, error } = await db
+      .from('collection_items')
+      .select('*')
+      .eq('user_id', req.params.user_id)
+      .eq('is_sold', true)
+      .order('sold_date', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load sold items.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// COLLECTION — ADD ITEM
+// ─────────────────────────────────────────
+app.post('/api/collection', async (req, res) => {
+  const { user_id } = req.body;
+  if (!user_id) return res.status(400).json({ error: 'User ID required.' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const item = {
+      user_id,
+      category: req.body.category,
+      player_character: req.body.player_character || null,
+      card_title: req.body.card_title || null,
+      brand: req.body.brand || null,
+      set_name: req.body.set_name || null,
+      year: req.body.year || null,
+      card_number: req.body.card_number || null,
+      parallel: req.body.parallel || null,
+      grade_company: req.body.grade_company || null,
+      grade: req.body.grade || null,
+      product_name: req.body.product_name || null,
+      box_type: req.body.box_type || null,
+      quantity: parseInt(req.body.quantity) || 1,
+      purchase_price: parseFloat(req.body.purchase_price) || 0,
+      estimated_value: parseFloat(req.body.estimated_value) || 0,
+      value_updated_at: req.body.estimated_value ? new Date().toISOString() : null,
+      notes: req.body.notes || null,
+      is_sold: false,
+    };
+    const { data, error } = await db.from('collection_items').insert(item).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, item: data });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add item.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// COLLECTION — UPDATE ITEM
+// ─────────────────────────────────────────
+app.put('/api/collection/:id', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const updates = { ...req.body, updated_at: new Date().toISOString() };
+    if (updates.estimated_value !== undefined) updates.value_updated_at = new Date().toISOString();
+    delete updates.user_id;
+    const { data, error } = await db.from('collection_items').update(updates).eq('id', req.params.id).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, item: data });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update item.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// COLLECTION — DELETE ITEM
+// ─────────────────────────────────────────
+app.delete('/api/collection/:id', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { error } = await db.from('collection_items').delete().eq('id', req.params.id);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete item.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// COLLECTION — MARK AS SOLD
+// ─────────────────────────────────────────
+app.post('/api/collection/:id/sell', async (req, res) => {
+  const { sold_price, sold_date } = req.body;
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data, error } = await db.from('collection_items')
+      .update({ is_sold: true, sold_price: parseFloat(sold_price) || 0, sold_date: sold_date || new Date().toISOString().split('T')[0], updated_at: new Date().toISOString() })
+      .eq('id', req.params.id).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, item: data });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to mark as sold.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// COLLECTION — EXPORT CSV
+// ─────────────────────────────────────────
+app.get('/api/collection/:user_id/export', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data, error } = await db.from('collection_items').select('*').eq('user_id', req.params.user_id).order('created_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+
+    const headers = ['Category','Player/Character','Card Title','Brand','Set','Year','Card #','Parallel','Grade Co.','Grade','Product Name','Box Type','Qty','Purchase Price','Est. Value','Gain/Loss','Notes','Status','Sold Price','Sold Date'];
+    const rows = (data || []).map(function(i) {
+      const gl = ((i.estimated_value || 0) - (i.purchase_price || 0)) * (i.quantity || 1);
+      return [
+        i.category, i.player_character, i.card_title, i.brand, i.set_name, i.year, i.card_number, i.parallel,
+        i.grade_company, i.grade, i.product_name, i.box_type, i.quantity, i.purchase_price, i.estimated_value,
+        gl.toFixed(2), i.notes, i.is_sold ? 'Sold' : 'In Collection', i.sold_price, i.sold_date
+      ].map(function(v) { return '"' + (v || '').toString().replace(/"/g, '""') + '"'; }).join(',');
+    });
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="collection.csv"');
+    res.send(csv);
+  } catch (err) {
+    res.status(500).json({ error: 'Export failed.' });
+  }
+});
+
+
+// ─────────────────────────────────────────
+// COLLECTION — GET USER'S ITEMS
+// ─────────────────────────────────────────
+app.get('/api/collection/:user_id', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data, error } = await db.from('collection_items').select('*').eq('user_id', req.params.user_id).order('created_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  } catch (err) { res.status(500).json({ error: 'Failed to load collection.' }); }
+});
+
+// ─────────────────────────────────────────
+// COLLECTION — ADD ITEM
+// ─────────────────────────────────────────
+app.post('/api/collection', async (req, res) => {
+  const { user_id, category } = req.body;
+  if (!user_id || !category) return res.status(400).json({ error: 'user_id and category required.' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const insert = {
+      user_id, category,
+      player_character: req.body.player_character || null,
+      card_title: req.body.card_title || null,
+      brand: req.body.brand || null,
+      set_name: req.body.set_name || null,
+      year: req.body.year || null,
+      card_number: req.body.card_number || null,
+      parallel: req.body.parallel || null,
+      grade_company: req.body.grade_company || null,
+      grade: req.body.grade || null,
+      product_name: req.body.product_name || null,
+      box_type: req.body.box_type || null,
+      quantity: req.body.quantity || 1,
+      purchase_price: req.body.purchase_price || 0,
+      estimated_value: req.body.estimated_value || 0,
+      value_updated_at: req.body.value_updated_at || null,
+      notes: req.body.notes || null,
+    };
+    const { data, error } = await db.from('collection_items').insert(insert).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, item: data });
+  } catch (err) { res.status(500).json({ error: 'Failed to add item.' }); }
+});
+
+// ─────────────────────────────────────────
+// COLLECTION — UPDATE ITEM
+// ─────────────────────────────────────────
+app.put('/api/collection/:id', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const updates = {
+      player_character: req.body.player_character || null,
+      card_title: req.body.card_title || null,
+      brand: req.body.brand || null,
+      set_name: req.body.set_name || null,
+      year: req.body.year || null,
+      card_number: req.body.card_number || null,
+      parallel: req.body.parallel || null,
+      grade_company: req.body.grade_company || null,
+      grade: req.body.grade || null,
+      product_name: req.body.product_name || null,
+      box_type: req.body.box_type || null,
+      quantity: req.body.quantity || 1,
+      purchase_price: req.body.purchase_price || 0,
+      estimated_value: req.body.estimated_value || 0,
+      value_updated_at: req.body.value_updated_at || null,
+      notes: req.body.notes || null,
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await db.from('collection_items').update(updates).eq('id', req.params.id).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, item: data });
+  } catch (err) { res.status(500).json({ error: 'Failed to update item.' }); }
+});
+
+// ─────────────────────────────────────────
+// COLLECTION — DELETE ITEM
+// ─────────────────────────────────────────
+app.delete('/api/collection/:id', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { error } = await db.from('collection_items').delete().eq('id', req.params.id);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Failed to delete item.' }); }
+});
+
+// ─────────────────────────────────────────
+// COLLECTION — MARK AS SOLD
+// ─────────────────────────────────────────
+app.post('/api/collection/:id/sell', async (req, res) => {
+  const { sold_price, sold_date } = req.body;
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data, error } = await db.from('collection_items').update({ is_sold: true, sold_price: sold_price || 0, sold_date: sold_date || null, updated_at: new Date().toISOString() }).eq('id', req.params.id).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, item: data });
+  } catch (err) { res.status(500).json({ error: 'Failed to mark as sold.' }); }
+});
+
 // ─────────────────────────────────────────
 // HOBBY NEWS — RSS AGGREGATOR
 // ─────────────────────────────────────────

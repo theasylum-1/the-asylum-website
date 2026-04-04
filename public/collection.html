@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Vault — The Asylum</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #080808; --deep: #0f0f0f; --card: #141414; --surface: #1a1a1a;
+      --border: #222; --text: #e8e0d8; --muted: #666;
+      --red: #c0392b; --red-bright: #e74c3c; --red-glow: rgba(192,57,43,0.2);
+      --green: #27ae60; --gold: #d4a843;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Barlow', sans-serif; min-height: 100vh; }
+    nav { background: rgba(8,8,8,0.97); border-bottom: 1px solid var(--border); padding: 0 2rem; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+    .nav-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .nav-logo img { height: 44px; }
+    .nav-logo span { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 3px; color: var(--text); }
+    .nav-back { font-family: 'Barlow Condensed', sans-serif; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); cursor: pointer; background: none; border: 1px solid var(--border); padding: 6px 16px; }
+    .nav-back:hover { color: var(--text); border-color: var(--text); }
+    .mobile-nav-toggle { display: none; background: none; border: 1px solid var(--border); color: var(--text); padding: 6px 12px; font-size: 18px; cursor: pointer; }
+    .app { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 60px); }
+    .sidebar { background: var(--deep); border-right: 1px solid var(--border); padding: 1.5rem 0; }
+    .sidebar-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--muted); margin-bottom: 0.75rem; padding: 0 1.5rem; }
+    .sidebar-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 1.5rem; background: none; border: none; color: var(--muted); font-family: 'Barlow Condensed', sans-serif; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; text-align: left; transition: all 0.15s; }
+    .sidebar-btn:hover { background: var(--surface); color: var(--text); }
+    .sidebar-btn.active { background: var(--red-glow); color: var(--red-bright); border-left: 2px solid var(--red-bright); }
+    .sidebar-btn .icon { font-size: 16px; width: 20px; }
+    .add-btn { background: var(--red); color: #fff; border: none; padding: 12px 1rem; width: calc(100% - 2rem); margin: 0 1rem 1.5rem; font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .add-btn:hover { background: var(--red-bright); }
+    .sidebar-section { padding: 0 0 1.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+    .main { overflow-y: auto; }
+    .page { display: none; padding: 2rem; }
+    .page.active { display: block; }
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); margin-bottom: 2rem; }
+    .stat-card { background: var(--card); padding: 1.5rem; }
+    .stat-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--muted); margin-bottom: 0.5rem; }
+    .stat-value { font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: 2px; color: var(--text); line-height: 1; }
+    .stat-value.green { color: var(--green); }
+    .stat-value.red-v { color: var(--red-bright); }
+    .stat-value.gold { color: var(--gold); }
+    .stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .category-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--border); margin-bottom: 2rem; }
+    .category-card { background: var(--card); padding: 1.25rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+    .category-card-left { display: flex; align-items: center; gap: 12px; }
+    .category-icon { font-size: 24px; }
+    .category-name { font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text); }
+    .category-count { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .category-value { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; color: var(--gold); }
+    .section-label { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; letter-spacing: 4px; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+    .toolbar { display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: center; flex-wrap: wrap; }
+    .search-input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; font-family: 'Barlow', sans-serif; font-size: 14px; outline: none; flex: 1; min-width: 200px; }
+    .search-input:focus { border-color: var(--red); }
+    .filter-select { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; font-family: 'Barlow Condensed', sans-serif; font-size: 13px; letter-spacing: 1px; outline: none; cursor: pointer; }
+    .export-btn { background: none; border: 1px solid var(--border); color: var(--muted); padding: 10px 16px; font-family: 'Barlow Condensed', sans-serif; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; }
+    .export-btn:hover { border-color: var(--text); color: var(--text); }
+    .collection-table { width: 100%; border-collapse: collapse; }
+    .collection-table th { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); background: var(--deep); white-space: nowrap; }
+    .collection-table td { padding: 12px; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text); vertical-align: middle; }
+    .collection-table tr:hover td { background: var(--surface); }
+    .cat-badge { display: inline-block; padding: 2px 8px; font-family: 'Barlow Condensed', sans-serif; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; }
+    .cat-badge.sports_card { background: #1a2a3a; color: #5ba3d9; }
+    .cat-badge.tcg_card { background: #1a3a1a; color: #5bd95b; }
+    .cat-badge.sealed_sports { background: #2a1a3a; color: #a05bd9; }
+    .cat-badge.sealed_tcg { background: #3a2a1a; color: #d9a05b; }
+    .gain { color: var(--green); }
+    .loss { color: var(--red-bright); }
+    .action-btns { display: flex; gap: 4px; }
+    .btn-sm { background: none; border: 1px solid var(--border); color: var(--muted); padding: 4px 8px; font-family: 'Barlow Condensed', sans-serif; font-size: 11px; letter-spacing: 1px; cursor: pointer; white-space: nowrap; }
+    .btn-sm:hover { border-color: var(--text); color: var(--text); }
+    .btn-sm.danger:hover { border-color: var(--red-bright); color: var(--red-bright); }
+    .btn-sm.sold-btn { border-color: #555; color: var(--gold); }
+    .empty-state { text-align: center; padding: 4rem 2rem; }
+    .empty-icon { font-size: 48px; margin-bottom: 1rem; opacity: 0.5; }
+    .empty-state h3 { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 3px; color: var(--muted); margin-bottom: 0.5rem; }
+    .empty-state p { font-size: 14px; color: var(--muted); }
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 200; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 1.5rem; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--deep); border: 1px solid var(--border); border-top: 2px solid var(--red); padding: 2rem; width: 100%; max-width: 640px; margin: auto; position: relative; }
+    .modal h2 { font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 3px; margin-bottom: 0.25rem; }
+    .modal-sub { font-family: 'Barlow Condensed', sans-serif; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 1.5rem; }
+    .modal-close { position: absolute; top: 1rem; right: 1rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); font-size: 18px; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+    .form-section { margin-bottom: 1.5rem; }
+    .form-section-title { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--red-bright); margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .form-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 0; }
+    .form-group label { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+    .form-group input, .form-group select, .form-group textarea { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 10px 12px; font-family: 'Barlow', sans-serif; font-size: 14px; outline: none; width: 100%; }
+    .form-group input:focus, .form-group select:focus { border-color: var(--red); }
+    .form-group select option { background: var(--surface); }
+    .form-group textarea { resize: vertical; min-height: 60px; }
+    .cat-selector { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--border); margin-bottom: 1.5rem; }
+    .cat-option { background: var(--surface); padding: 1.25rem 1rem; text-align: center; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; }
+    .cat-option:hover { background: var(--card); }
+    .cat-option.selected { background: var(--card); border-color: var(--red-bright); }
+    .cat-option-icon { font-size: 28px; margin-bottom: 6px; }
+    .cat-option-name { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text); }
+    .cat-option-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .submit-btn { width: 100%; background: var(--red); color: #fff; border: none; padding: 14px; font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; cursor: pointer; margin-top: 1rem; }
+    .submit-btn:hover { background: var(--red-bright); }
+    .login-gate { max-width: 440px; margin: 4rem auto; padding: 2rem; text-align: center; }
+    .login-gate h1 { font-family: 'Bebas Neue', sans-serif; font-size: 48px; letter-spacing: 4px; margin-bottom: 0.5rem; }
+    .login-gate p { color: var(--muted); font-size: 14px; margin-bottom: 2rem; line-height: 1.6; }
+    #toast { position: fixed; bottom: 2rem; right: 2rem; padding: 1rem 1.5rem; font-family: 'Barlow Condensed', sans-serif; font-size: 14px; letter-spacing: 1px; z-index: 9999; display: none; max-width: 320px; border-radius: 2px; }
+    @media (max-width: 768px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { display: none; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; z-index: 50; overflow-y: auto; }
+      .sidebar.open { display: block; }
+      .mobile-nav-toggle { display: block; }
+      .stat-grid { grid-template-columns: repeat(2, 1fr); }
+      .category-grid { grid-template-columns: 1fr; }
+      .form-grid, .form-grid.three { grid-template-columns: 1fr; }
+      .page { padding: 1rem; }
+      .collection-table { font-size: 12px; }
+      .collection-table th, .collection-table td { padding: 8px 6px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="/">
+    <img src="/images/img_001.png" alt="The Asylum">
+    <span>The Vault</span>
+  </a>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <button class="mobile-nav-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+    <button class="nav-back" onclick="window.location.href='/'">← Back</button>
+  </div>
+</nav>
+
+<div id="login-gate" style="display:none;">
+  <div class="login-gate">
+    <div style="font-size:64px;margin-bottom:1rem;">🗂️</div>
+    <h1>COLLECTION TRACKER</h1>
+    <p>Track your entire card collection in The Vault — sports cards, TCG, and sealed product. Sign in to get started.</p>
+    <a href="/" style="display:inline-block;background:var(--red);color:#fff;padding:14px 32px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;text-decoration:none;">Sign In on The Asylum</a>
+  </div>
+</div>
+
+<div class="app" id="main-app" style="display:none;">
+  <div class="sidebar" id="sidebar">
+    <div style="padding:1rem 1.5rem 1.25rem;border-bottom:1px solid var(--border);margin-bottom:1rem;">
+      <div id="user-name" style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;color:var(--text);margin-bottom:2px;text-transform:uppercase;">My Collection</div>
+      <div id="user-email" style="font-size:11px;color:var(--muted);"></div>
+    </div>
+    <button class="add-btn" onclick="openAddModal()">+ Add Item</button>
+    <div class="sidebar-section">
+      <div class="sidebar-label" style="margin-bottom:0.5rem;">Collection</div>
+      <button class="sidebar-btn active" id="nav-dashboard" onclick="showPage('dashboard')"><span class="icon">📊</span>Dashboard</button>
+      <button class="sidebar-btn" id="nav-all" onclick="showPage('all')"><span class="icon">🗂️</span>All Items</button>
+      <button class="sidebar-btn" id="nav-sports" onclick="showPage('sports')"><span class="icon">🏈</span>Sports Cards</button>
+      <button class="sidebar-btn" id="nav-tcg" onclick="showPage('tcg')"><span class="icon">⚡</span>TCG Cards</button>
+      <button class="sidebar-btn" id="nav-sealed-sports" onclick="showPage('sealed-sports')"><span class="icon">📦</span>Sealed Sports</button>
+      <button class="sidebar-btn" id="nav-sealed-tcg" onclick="showPage('sealed-tcg')"><span class="icon">📦</span>Sealed TCG</button>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label" style="margin-bottom:0.5rem;">Archive</div>
+      <button class="sidebar-btn" id="nav-sold" onclick="showPage('sold')"><span class="icon">✅</span>Sold Items</button>
+    </div>
+    <div style="padding:1rem 1rem 0;">
+      <button class="export-btn" style="width:100%;" onclick="exportCSV()">⬇ Export CSV</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="section-label" style="margin-bottom:1.5rem;">Collection Overview</div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-label">Total Items</div><div class="stat-value" id="stat-total-items">—</div></div>
+        <div class="stat-card"><div class="stat-label">Est. Total Value</div><div class="stat-value gold" id="stat-total-value">—</div></div>
+        <div class="stat-card"><div class="stat-label">Total Invested</div><div class="stat-value" id="stat-total-invested">—</div></div>
+        <div class="stat-card"><div class="stat-label">Total Gain / Loss</div><div class="stat-value" id="stat-gain-loss">—</div><div class="stat-sub" id="stat-gain-pct"></div></div>
+      </div>
+      <div class="section-label">By Category</div>
+      <div class="category-grid">
+        <div class="category-card"><div class="category-card-left"><div class="category-icon">🏈</div><div><div class="category-name">Sports Cards</div><div class="category-count" id="cat-count-sports_card">0 items</div></div></div><div class="category-value" id="cat-val-sports_card">$0</div></div>
+        <div class="category-card"><div class="category-card-left"><div class="category-icon">⚡</div><div><div class="category-name">TCG Cards</div><div class="category-count" id="cat-count-tcg_card">0 items</div></div></div><div class="category-value" id="cat-val-tcg_card">$0</div></div>
+        <div class="category-card"><div class="category-card-left"><div class="category-icon">📦</div><div><div class="category-name">Sealed Sports</div><div class="category-count" id="cat-count-sealed_sports">0 items</div></div></div><div class="category-value" id="cat-val-sealed_sports">$0</div></div>
+        <div class="category-card"><div class="category-card-left"><div class="category-icon">📦</div><div><div class="category-name">Sealed TCG</div><div class="category-count" id="cat-count-sealed_tcg">0 items</div></div></div><div class="category-value" id="cat-val-sealed_tcg">$0</div></div>
+      </div>
+      <div class="section-label">Recent Additions</div>
+      <div id="recent-items"><div class="empty-state"><div class="empty-icon">🗂️</div><h3>No Items Yet</h3><p>Click "+ Add Item" to start building your collection.</p></div></div>
+    </div>
+
+    <!-- ALL -->
+    <div class="page" id="page-all">
+      <div class="toolbar">
+        <input type="text" class="search-input" id="search-all" placeholder="Search your collection..." oninput="filterItems('all')">
+        <select class="filter-select" id="sort-all" onchange="filterItems('all')"><option value="newest">Newest First</option><option value="oldest">Oldest First</option><option value="value-high">Value: High to Low</option><option value="value-low">Value: Low to High</option><option value="gain">Biggest Gains</option><option value="name">Name A-Z</option></select>
+        <button class="export-btn" onclick="exportCSV()">⬇ Export</button>
+      </div>
+      <div id="table-all"></div>
+    </div>
+
+    <!-- SPORTS -->
+    <div class="page" id="page-sports">
+      <div class="toolbar">
+        <input type="text" class="search-input" id="search-sports" placeholder="Search sports cards..." oninput="filterItems('sports')">
+        <select class="filter-select" id="sort-sports" onchange="filterItems('sports')"><option value="newest">Newest First</option><option value="value-high">Value: High to Low</option><option value="gain">Biggest Gains</option><option value="name">Name A-Z</option></select>
+      </div>
+      <div id="table-sports"></div>
+    </div>
+
+    <!-- TCG -->
+    <div class="page" id="page-tcg">
+      <div class="toolbar">
+        <input type="text" class="search-input" id="search-tcg" placeholder="Search TCG cards..." oninput="filterItems('tcg')">
+        <select class="filter-select" id="sort-tcg" onchange="filterItems('tcg')"><option value="newest">Newest First</option><option value="value-high">Value: High to Low</option><option value="gain">Biggest Gains</option><option value="name">Name A-Z</option></select>
+      </div>
+      <div id="table-tcg"></div>
+    </div>
+
+    <!-- SEALED SPORTS -->
+    <div class="page" id="page-sealed-sports">
+      <div class="toolbar">
+        <input type="text" class="search-input" id="search-sealed-sports" placeholder="Search sealed sports..." oninput="filterItems('sealed-sports')">
+        <select class="filter-select" id="sort-sealed-sports" onchange="filterItems('sealed-sports')"><option value="newest">Newest First</option><option value="value-high">Value: High to Low</option><option value="gain">Biggest Gains</option><option value="name">Name A-Z</option></select>
+      </div>
+      <div id="table-sealed-sports"></div>
+    </div>
+
+    <!-- SEALED TCG -->
+    <div class="page" id="page-sealed-tcg">
+      <div class="toolbar">
+        <input type="text" class="search-input" id="search-sealed-tcg" placeholder="Search sealed TCG..." oninput="filterItems('sealed-tcg')">
+        <select class="filter-select" id="sort-sealed-tcg" onchange="filterItems('sealed-tcg')"><option value="newest">Newest First</option><option value="value-high">Value: High to Low</option><option value="gain">Biggest Gains</option><option value="name">Name A-Z</option></select>
+      </div>
+      <div id="table-sealed-tcg"></div>
+    </div>
+
+    <!-- SOLD -->
+    <div class="page" id="page-sold">
+      <div class="section-label">Sold Items Archive</div>
+      <div id="table-sold"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD/EDIT MODAL -->
+<div class="modal-overlay" id="item-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <h2 id="modal-title">Add Item</h2>
+    <div class="modal-sub" id="modal-sub">Select a category to get started</div>
+
+    <div id="step-category">
+      <div class="cat-selector">
+        <div class="cat-option" id="cat-opt-sports_card" onclick="selectCategory('sports_card')"><div class="cat-option-icon">🏈</div><div class="cat-option-name">Sports Card</div><div class="cat-option-sub">Raw or graded</div></div>
+        <div class="cat-option" id="cat-opt-tcg_card" onclick="selectCategory('tcg_card')"><div class="cat-option-icon">⚡</div><div class="cat-option-name">TCG Card</div><div class="cat-option-sub">Pokémon, One Piece, etc.</div></div>
+        <div class="cat-option" id="cat-opt-sealed_sports" onclick="selectCategory('sealed_sports')"><div class="cat-option-icon">📦</div><div class="cat-option-name">Sealed Sports</div><div class="cat-option-sub">Boxes, packs, cases</div></div>
+        <div class="cat-option" id="cat-opt-sealed_tcg" onclick="selectCategory('sealed_tcg')"><div class="cat-option-icon">📦</div><div class="cat-option-name">Sealed TCG</div><div class="cat-option-sub">Booster boxes, ETBs</div></div>
+      </div>
+    </div>
+
+    <div id="step-form" style="display:none;">
+      <input type="hidden" id="edit-item-id">
+      <input type="hidden" id="form-category">
+
+      <!-- BACK BUTTON (when adding new, not editing) -->
+      <button id="back-to-cat" onclick="showCategoryStep()" style="background:none;border:1px solid var(--border);color:var(--muted);padding:6px 14px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;margin-bottom:1.5rem;">← Change Category</button>
+
+      <!-- SPORTS CARD -->
+      <div id="fields-sports_card" style="display:none;">
+        <div class="form-section">
+          <div class="form-section-title">Card Identity</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Player Name *</label><input type="text" id="sc-player" placeholder="e.g. Patrick Mahomes"></div>
+            <div class="form-group"><label>Card Title</label><input type="text" id="sc-title" placeholder="e.g. Rookie Auto, Base"></div>
+          </div>
+          <div class="form-grid three">
+            <div class="form-group"><label>Year *</label><input type="text" id="sc-year" placeholder="e.g. 2020"></div>
+            <div class="form-group"><label>Brand *</label><input type="text" id="sc-brand" placeholder="e.g. Panini Prizm" list="sports-brands"><datalist id="sports-brands"><option value="Panini Prizm"><option value="Topps Chrome"><option value="Bowman Chrome"><option value="Panini Select"><option value="Topps Series 1"><option value="Panini National Treasures"><option value="Upper Deck"><option value="Donruss Optic"></datalist></div>
+            <div class="form-group"><label>Sport</label><select id="sc-sport"><option value="">Select...</option><option>Baseball</option><option>Football</option><option>Basketball</option><option>Hockey</option><option>Soccer</option><option>Golf</option><option>UFC/MMA</option><option>Other</option></select></div>
+          </div>
+          <div class="form-grid three">
+            <div class="form-group"><label>Set Name</label><input type="text" id="sc-set" placeholder="e.g. Silver Prizm"></div>
+            <div class="form-group"><label>Card #</label><input type="text" id="sc-number" placeholder="e.g. #15"></div>
+            <div class="form-group"><label>Parallel / Variation</label><input type="text" id="sc-parallel" placeholder="e.g. Gold /10"></div>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">Grading (leave blank if raw)</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Grade Company</label><select id="sc-grade-co"><option value="">Raw</option><option>PSA</option><option>BGS</option><option>CGC</option><option>SGC</option><option>HGA</option><option>Other</option></select></div>
+            <div class="form-group"><label>Grade</label><select id="sc-grade"><option value="">N/A</option><option>10</option><option>9.5</option><option>9</option><option>8.5</option><option>8</option><option>7.5</option><option>7</option><option>6</option><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TCG CARD -->
+      <div id="fields-tcg_card" style="display:none;">
+        <div class="form-section">
+          <div class="form-section-title">Card Identity</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Character Name *</label><input type="text" id="tcg-player" placeholder="e.g. Charizard, Luffy"></div>
+            <div class="form-group"><label>Card Variant</label><input type="text" id="tcg-title" placeholder="e.g. ex, VMAX, Alt Art"></div>
+          </div>
+          <div class="form-grid three">
+            <div class="form-group"><label>Game / Brand *</label><input type="text" id="tcg-brand" placeholder="e.g. Pokémon TCG" list="tcg-brands"><datalist id="tcg-brands"><option value="Pokémon TCG"><option value="One Piece TCG"><option value="Magic: The Gathering"><option value="Yu-Gi-Oh!"><option value="Dragon Ball Super"><option value="Lorcana"><option value="Digimon TCG"><option value="MetaZoo"></datalist></div>
+            <div class="form-group"><label>Set Name *</label><input type="text" id="tcg-set" placeholder="e.g. 151, Prismatic Evolutions"></div>
+            <div class="form-group"><label>Year</label><input type="text" id="tcg-year" placeholder="e.g. 2024"></div>
+          </div>
+          <div class="form-grid three">
+            <div class="form-group"><label>Card #</label><input type="text" id="tcg-number" placeholder="e.g. 006/165"></div>
+            <div class="form-group"><label>Parallel / Holo</label><input type="text" id="tcg-parallel" placeholder="e.g. Reverse Holo, Rainbow"></div>
+            <div class="form-group"><label>Language</label><select id="tcg-language"><option>English</option><option>Japanese</option><option>Korean</option><option>Other</option></select></div>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">Grading (leave blank if raw)</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Grade Company</label><select id="tcg-grade-co"><option value="">Raw</option><option>PSA</option><option>BGS</option><option>CGC</option><option>SGC</option><option>HGA</option></select></div>
+            <div class="form-group"><label>Grade</label><select id="tcg-grade"><option value="">N/A</option><option>10</option><option>9.5</option><option>9</option><option>8.5</option><option>8</option><option>7</option><option>6</option></select></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEALED SPORTS -->
+      <div id="fields-sealed_sports" style="display:none;">
+        <div class="form-section">
+          <div class="form-section-title">Product Details</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Product Name *</label><input type="text" id="ss-product" placeholder="e.g. 2024 Topps Chrome Baseball Hobby Box"></div>
+            <div class="form-group"><label>Brand *</label><input type="text" id="ss-brand" placeholder="e.g. Topps, Panini" list="sports-brands2"><datalist id="sports-brands2"><option value="Topps"><option value="Panini"><option value="Upper Deck"><option value="Bowman"><option value="Donruss"></datalist></div>
+          </div>
+          <div class="form-grid three">
+            <div class="form-group"><label>Set / Series</label><input type="text" id="ss-set" placeholder="e.g. Chrome, Prizm"></div>
+            <div class="form-group"><label>Year *</label><input type="text" id="ss-year" placeholder="e.g. 2024"></div>
+            <div class="form-group"><label>Sport</label><select id="ss-sport"><option>Baseball</option><option>Football</option><option>Basketball</option><option>Hockey</option><option>Multi-Sport</option></select></div>
+          </div>
+          <div class="form-group" style="margin-bottom:12px;"><label>Box Type</label><select id="ss-box-type"><option>Hobby Box</option><option>Blaster Box</option><option>Jumbo Box</option><option>Hanger Box</option><option>Retail Pack</option><option>Hobby Case</option><option>Mega Box</option><option>Other</option></select></div>
+        </div>
+      </div>
+
+      <!-- SEALED TCG -->
+      <div id="fields-sealed_tcg" style="display:none;">
+        <div class="form-section">
+          <div class="form-section-title">Product Details</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Product Name *</label><input type="text" id="st-product" placeholder="e.g. Prismatic Evolutions Elite Trainer Box"></div>
+            <div class="form-group"><label>Game / Brand *</label><input type="text" id="st-brand" placeholder="e.g. Pokémon TCG" list="tcg-brands2"><datalist id="tcg-brands2"><option value="Pokémon TCG"><option value="One Piece TCG"><option value="Magic: The Gathering"><option value="Yu-Gi-Oh!"><option value="Dragon Ball Super"><option value="Lorcana"></datalist></div>
+          </div>
+          <div class="form-grid three">
+            <div class="form-group"><label>Set / Series</label><input type="text" id="st-set" placeholder="e.g. Prismatic Evolutions"></div>
+            <div class="form-group"><label>Year</label><input type="text" id="st-year" placeholder="e.g. 2025"></div>
+            <div class="form-group"><label>Language</label><select id="st-language"><option>English</option><option>Japanese</option><option>Korean</option><option>Other</option></select></div>
+          </div>
+          <div class="form-group" style="margin-bottom:12px;"><label>Product Type</label><select id="st-box-type"><option>Booster Box</option><option>Elite Trainer Box</option><option>Booster Bundle</option><option>Booster Pack</option><option>Collection Box</option><option>Case</option><option>Tin</option><option>Gift Set</option><option>Other</option></select></div>
+        </div>
+      </div>
+
+      <!-- SHARED FIELDS -->
+      <div class="form-section">
+        <div class="form-section-title">Pricing & Quantity</div>
+        <div class="form-grid three">
+          <div class="form-group"><label>Quantity</label><input type="number" id="form-qty" value="1" min="1"></div>
+          <div class="form-group"><label>Purchase Price ($)</label><input type="number" id="form-purchase" placeholder="0.00" step="0.01" min="0"></div>
+          <div class="form-group"><label>Est. Market Value ($)</label><input type="number" id="form-value" placeholder="0.00" step="0.01" min="0"></div>
+        </div>
+        <div class="form-group"><label>Notes</label><textarea id="form-notes" placeholder="Condition, print run, purchase source..."></textarea></div>
+      </div>
+
+      <button class="submit-btn" onclick="submitItem()" id="submit-btn">Add to Collection</button>
+    </div>
+  </div>
+</div>
+
+<!-- SELL MODAL -->
+<div class="modal-overlay" id="sell-modal">
+  <div class="modal" style="max-width:400px;">
+    <button class="modal-close" onclick="document.getElementById('sell-modal').classList.remove('open')">×</button>
+    <h2>MARK AS SOLD</h2>
+    <div class="modal-sub" id="sell-item-name"></div>
+    <div class="form-group" style="margin-bottom:1rem;"><label>Sold For ($)</label><input type="number" id="sell-price" placeholder="0.00" step="0.01"></div>
+    <div class="form-group" style="margin-bottom:1.5rem;"><label>Date Sold</label><input type="date" id="sell-date"></div>
+    <button class="submit-btn" onclick="confirmSold()">Confirm Sold</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+var currentUser = null;
+var allItems = [];
+var editingId = null;
+var sellItemId = null;
+
+async function init() {
+  // Find Supabase session in localStorage
+  var session = null;
+  for (var i = 0; i < localStorage.length; i++) {
+    var key = localStorage.key(i);
+    if (key && key.includes('supabase') && key.includes('auth')) {
+      try { session = JSON.parse(localStorage.getItem(key)); break; } catch(e) {}
+    }
+  }
+
+  if (session && session.user) {
+    currentUser = session.user;
+    document.getElementById('login-gate').style.display = 'none';
+    document.getElementById('main-app').style.display = 'grid';
+    var name = currentUser.user_metadata && currentUser.user_metadata.full_name;
+    document.getElementById('user-name').textContent = 'THE VAULT';
+    document.getElementById('user-email').textContent = currentUser.email;
+    loadCollection();
+  } else {
+    document.getElementById('login-gate').style.display = 'block';
+    document.getElementById('main-app').style.display = 'none';
+  }
+}
+
+async function loadCollection() {
+  try {
+    var res = await fetch('/api/collection/' + currentUser.id);
+    var data = await res.json();
+    allItems = Array.isArray(data) ? data : [];
+    renderDashboard();
+    renderAllTables();
+  } catch(e) {
+    showToast('Failed to load collection.', 'error');
+  }
+}
+
+function renderDashboard() {
+  var active = allItems.filter(function(i){ return !i.is_sold; });
+  var totalItems = active.reduce(function(s,i){ return s + (parseInt(i.quantity)||1); }, 0);
+  var totalValue = active.reduce(function(s,i){ return s + (parseFloat(i.estimated_value)||0) * (parseInt(i.quantity)||1); }, 0);
+  var totalInvested = active.reduce(function(s,i){ return s + (parseFloat(i.purchase_price)||0) * (parseInt(i.quantity)||1); }, 0);
+  var gainLoss = totalValue - totalInvested;
+  var gainPct = totalInvested > 0 ? ((gainLoss / totalInvested) * 100).toFixed(1) : null;
+
+  document.getElementById('stat-total-items').textContent = totalItems;
+  document.getElementById('stat-total-value').textContent = fmtMoney(totalValue);
+  document.getElementById('stat-total-invested').textContent = fmtMoney(totalInvested);
+  var glEl = document.getElementById('stat-gain-loss');
+  glEl.textContent = (gainLoss >= 0 ? '+' : '-') + fmtMoney(Math.abs(gainLoss));
+  glEl.className = 'stat-value ' + (gainLoss >= 0 ? 'green' : 'red-v');
+  document.getElementById('stat-gain-pct').textContent = gainPct ? (gainLoss >= 0 ? '+' : '') + gainPct + '%' : '';
+
+  var cats = ['sports_card','tcg_card','sealed_sports','sealed_tcg'];
+  cats.forEach(function(cat) {
+    var items = active.filter(function(i){ return i.category === cat; });
+    var count = items.reduce(function(s,i){ return s + (parseInt(i.quantity)||1); }, 0);
+    var val = items.reduce(function(s,i){ return s + (parseFloat(i.estimated_value)||0) * (parseInt(i.quantity)||1); }, 0);
+    document.getElementById('cat-count-' + cat).textContent = count + ' items';
+    document.getElementById('cat-val-' + cat).textContent = '$' + Math.round(val).toLocaleString();
+  });
+
+  var recent = active.slice().sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); }).slice(0,5);
+  var recentEl = document.getElementById('recent-items');
+  if (!recent.length) {
+    recentEl.innerHTML = '<div class="empty-state"><div class="empty-icon">🗂️</div><h3>No Items Yet</h3><p>Click "+ Add Item" to start tracking your collection.</p></div>';
+  } else {
+    recentEl.innerHTML = renderTable(recent);
+  }
+}
+
+function renderAllTables() {
+  filterItems('all'); filterItems('sports'); filterItems('tcg');
+  filterItems('sealed-sports'); filterItems('sealed-tcg'); renderSoldTable();
+}
+
+var catMap = {all:null, sports:'sports_card', tcg:'tcg_card', 'sealed-sports':'sealed_sports', 'sealed-tcg':'sealed_tcg'};
+
+function filterItems(page) {
+  var cat = catMap[page];
+  var searchEl = document.getElementById('search-' + page);
+  var sortEl = document.getElementById('sort-' + page);
+  var search = searchEl ? searchEl.value.toLowerCase() : '';
+  var sort = sortEl ? sortEl.value : 'newest';
+
+  var items = allItems.filter(function(i) {
+    if (i.is_sold) return false;
+    if (cat && i.category !== cat) return false;
+    if (search) {
+      var name = getItemName(i).toLowerCase();
+      var brand = (i.brand||'').toLowerCase();
+      var setname = (i.set_name||'').toLowerCase();
+      if (!name.includes(search) && !brand.includes(search) && !setname.includes(search)) return false;
+    }
+    return true;
+  });
+
+  if (sort === 'newest') items.sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); });
+  else if (sort === 'oldest') items.sort(function(a,b){ return new Date(a.created_at)-new Date(b.created_at); });
+  else if (sort === 'value-high') items.sort(function(a,b){ return (parseFloat(b.estimated_value)||0)-(parseFloat(a.estimated_value)||0); });
+  else if (sort === 'value-low') items.sort(function(a,b){ return (parseFloat(a.estimated_value)||0)-(parseFloat(b.estimated_value)||0); });
+  else if (sort === 'gain') items.sort(function(a,b){ var ga=(parseFloat(a.estimated_value)||0)-(parseFloat(a.purchase_price)||0); var gb=(parseFloat(b.estimated_value)||0)-(parseFloat(b.purchase_price)||0); return gb-ga; });
+  else if (sort === 'name') items.sort(function(a,b){ return getItemName(a).localeCompare(getItemName(b)); });
+
+  var container = document.getElementById('table-' + page);
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><h3>Nothing Here</h3><p>' + (search ? 'No results for your search.' : 'No items in this category.') + '</p></div>';
+    return;
+  }
+  container.innerHTML = '<div style="overflow-x:auto;">' + renderTable(items) + '</div>';
+}
+
+function getItemName(item) {
+  if (item.category === 'sports_card') {
+    return [item.player_character, item.year, item.brand].filter(Boolean).join(' ');
+  }
+  if (item.category === 'tcg_card') {
+    return [item.player_character, item.card_title, item.set_name ? '— ' + item.set_name : ''].filter(Boolean).join(' ');
+  }
+  return item.product_name || '';
+}
+
+function getItemDetail(item) {
+  if (item.category === 'sports_card') {
+    var p = [item.set_name, item.card_number, item.parallel].filter(Boolean);
+    if (item.grade_company && item.grade) p.push(item.grade_company + ' ' + item.grade);
+    return p.join(' · ');
+  }
+  if (item.category === 'tcg_card') {
+    var p = [item.brand, item.set_name, item.card_number].filter(Boolean);
+    if (item.grade_company && item.grade) p.push(item.grade_company + ' ' + item.grade);
+    return p.join(' · ');
+  }
+  return [item.brand, item.box_type, item.year].filter(Boolean).join(' · ');
+}
+
+function catLabel(cat) {
+  return {sports_card:'Sports Card', tcg_card:'TCG Card', sealed_sports:'Sealed Sports', sealed_tcg:'Sealed TCG'}[cat] || cat;
+}
+
+function fmtMoney(n) {
+  return '$' + parseFloat(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function renderTable(items) {
+  var html = '<table class="collection-table"><thead><tr><th>Item</th><th>Category</th><th>Qty</th><th>Paid</th><th>Est. Value</th><th>Gain/Loss</th><th>Actions</th></tr></thead><tbody>';
+  items.forEach(function(item) {
+    var name = getItemName(item);
+    var detail = getItemDetail(item);
+    var qty = parseInt(item.quantity) || 1;
+    var paid = parseFloat(item.purchase_price) || 0;
+    var val = parseFloat(item.estimated_value) || 0;
+    var gl = (val - paid) * qty;
+    var glPct = paid > 0 ? Math.round(((val - paid) / paid) * 100) : null;
+    var safeId = item.id;
+    var safeName = name.replace(/'/g, '').replace(/"/g, '');
+
+    html += '<tr>';
+    html += '<td><div style="font-weight:600;">' + name + '</div>';
+    if (detail) html += '<div style="font-size:11px;color:var(--muted);margin-top:2px;">' + detail + '</div>';
+    if (item.notes) html += '<div style="font-size:11px;color:#555;margin-top:2px;font-style:italic;">' + item.notes.substring(0,60) + (item.notes.length>60?'...':'') + '</div>';
+    html += '</td>';
+    html += '<td><span class="cat-badge ' + item.category + '">' + catLabel(item.category) + '</span></td>';
+    html += '<td style="color:var(--muted);">' + qty + '</td>';
+    html += '<td>' + (paid > 0 ? fmtMoney(paid * qty) : '<span style="color:var(--muted)">—</span>') + '</td>';
+    html += '<td style="color:var(--gold);font-weight:600;">' + (val > 0 ? fmtMoney(val * qty) : '<span style="color:var(--muted)">—</span>') + '</td>';
+    if (paid > 0 && val > 0) {
+      html += '<td class="' + (gl >= 0 ? 'gain' : 'loss') + '">' + (gl >= 0 ? '+' : '-') + fmtMoney(Math.abs(gl));
+      if (glPct !== null) html += '<span style="font-size:10px;opacity:0.7;"> (' + (gl >= 0 ? '+' : '') + glPct + '%)</span>';
+      html += '</td>';
+    } else { html += '<td style="color:var(--muted);">—</td>'; }
+    html += '<td><div class="action-btns">';
+    html += '<button class="btn-sm" onclick="openEditModal(\'' + safeId + '\')">Edit</button>';
+    html += '<button class="btn-sm sold-btn" onclick="openSellModal(\'' + safeId + '\',\'' + safeName + '\')">Sold</button>';
+    html += '<button class="btn-sm danger" onclick="deleteItem(\'' + safeId + '\')">✕</button>';
+    html += '</div></td></tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderSoldTable() {
+  var sold = allItems.filter(function(i){ return i.is_sold; });
+  var container = document.getElementById('table-sold');
+  if (!sold.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><h3>No Sold Items</h3><p>Items you mark as sold will appear here.</p></div>';
+    return;
+  }
+  var html = '<div style="overflow-x:auto;"><table class="collection-table"><thead><tr><th>Item</th><th>Category</th><th>Paid</th><th>Sold For</th><th>Profit</th><th>Date Sold</th></tr></thead><tbody>';
+  sold.forEach(function(item) {
+    var name = getItemName(item);
+    var paid = parseFloat(item.purchase_price) || 0;
+    var soldFor = parseFloat(item.sold_price) || 0;
+    var profit = soldFor - paid;
+    html += '<tr style="opacity:0.7;">';
+    html += '<td><div style="font-weight:600;">' + name + '</div><div style="font-size:11px;color:var(--muted);">' + getItemDetail(item) + '</div></td>';
+    html += '<td><span class="cat-badge ' + item.category + '">' + catLabel(item.category) + '</span></td>';
+    html += '<td>' + (paid > 0 ? fmtMoney(paid) : '—') + '</td>';
+    html += '<td style="color:var(--gold);">' + (soldFor > 0 ? fmtMoney(soldFor) : '—') + '</td>';
+    html += '<td class="' + (profit >= 0 ? 'gain' : 'loss') + '">' + (paid > 0 && soldFor > 0 ? (profit >= 0 ? '+' : '-') + fmtMoney(Math.abs(profit)) : '—') + '</td>';
+    html += '<td style="color:var(--muted);font-size:12px;">' + (item.sold_date ? new Date(item.sold_date).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : '—') + '</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+}
+
+// ── NAVIGATION ──
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(function(el){ el.classList.remove('active'); });
+  document.querySelectorAll('.sidebar-btn').forEach(function(el){ el.classList.remove('active'); });
+  var pageEl = document.getElementById('page-' + page);
+  if (pageEl) pageEl.classList.add('active');
+  var navBtn = document.getElementById('nav-' + page);
+  if (navBtn) navBtn.classList.add('active');
+  document.getElementById('sidebar').classList.remove('open');
+}
+
+// ── ADD MODAL ──
+function openAddModal() {
+  editingId = null;
+  document.getElementById('modal-title').textContent = 'Add Item';
+  document.getElementById('modal-sub').textContent = 'What are you adding?';
+  document.getElementById('edit-item-id').value = '';
+  document.getElementById('submit-btn').textContent = 'Add to Collection';
+  showCategoryStep();
+  clearForm();
+  document.getElementById('item-modal').classList.add('open');
+}
+
+function showCategoryStep() {
+  document.getElementById('step-category').style.display = 'block';
+  document.getElementById('step-form').style.display = 'none';
+  document.querySelectorAll('.cat-option').forEach(function(el){ el.classList.remove('selected'); });
+}
+
+function selectCategory(cat) {
+  document.getElementById('form-category').value = cat;
+  document.querySelectorAll('.cat-option').forEach(function(el){ el.classList.remove('selected'); });
+  var opt = document.getElementById('cat-opt-' + cat);
+  if (opt) opt.classList.add('selected');
+  document.getElementById('step-category').style.display = 'none';
+  document.getElementById('step-form').style.display = 'block';
+  ['sports_card','tcg_card','sealed_sports','sealed_tcg'].forEach(function(c){
+    document.getElementById('fields-' + c).style.display = c === cat ? 'block' : 'none';
+  });
+  var names = {sports_card:'Sports Card', tcg_card:'TCG Card', sealed_sports:'Sealed Sports', sealed_tcg:'Sealed TCG'};
+  document.getElementById('modal-sub').textContent = 'Adding: ' + names[cat];
+  // Hide back button when editing
+  document.getElementById('back-to-cat').style.display = editingId ? 'none' : 'block';
+}
+
+function openEditModal(id) {
+  var item = allItems.find(function(i){ return i.id === id; });
+  if (!item) return;
+  editingId = id;
+  document.getElementById('modal-title').textContent = 'Edit Item';
+  document.getElementById('edit-item-id').value = id;
+  document.getElementById('submit-btn').textContent = 'Save Changes';
+  selectCategory(item.category);
+
+  document.getElementById('form-qty').value = item.quantity || 1;
+  document.getElementById('form-purchase').value = item.purchase_price || '';
+  document.getElementById('form-value').value = item.estimated_value || '';
+  document.getElementById('form-notes').value = item.notes || '';
+
+  if (item.category === 'sports_card') {
+    setVal('sc-player', item.player_character); setVal('sc-title', item.card_title);
+    setVal('sc-year', item.year); setVal('sc-brand', item.brand);
+    setVal('sc-set', item.set_name); setVal('sc-number', item.card_number);
+    setVal('sc-parallel', item.parallel); setVal('sc-grade-co', item.grade_company);
+    setVal('sc-grade', item.grade);
+  } else if (item.category === 'tcg_card') {
+    setVal('tcg-player', item.player_character); setVal('tcg-title', item.card_title);
+    setVal('tcg-brand', item.brand); setVal('tcg-set', item.set_name);
+    setVal('tcg-year', item.year); setVal('tcg-number', item.card_number);
+    setVal('tcg-parallel', item.parallel); setVal('tcg-grade-co', item.grade_company);
+    setVal('tcg-grade', item.grade);
+  } else if (item.category === 'sealed_sports') {
+    setVal('ss-product', item.product_name); setVal('ss-brand', item.brand);
+    setVal('ss-set', item.set_name); setVal('ss-year', item.year);
+    setVal('ss-box-type', item.box_type);
+  } else if (item.category === 'sealed_tcg') {
+    setVal('st-product', item.product_name); setVal('st-brand', item.brand);
+    setVal('st-set', item.set_name); setVal('st-year', item.year);
+    setVal('st-box-type', item.box_type);
+  }
+  document.getElementById('item-modal').classList.add('open');
+}
+
+function setVal(id, val) {
+  var el = document.getElementById(id);
+  if (el) el.value = val || '';
+}
+
+function closeModal() {
+  document.getElementById('item-modal').classList.remove('open');
+  clearForm();
+}
+
+function clearForm() {
+  ['sc-player','sc-title','sc-year','sc-brand','sc-set','sc-number','sc-parallel',
+   'tcg-player','tcg-title','tcg-brand','tcg-set','tcg-year','tcg-number','tcg-parallel',
+   'ss-product','ss-brand','ss-set','ss-year','st-product','st-brand','st-set','st-year','form-notes']
+  .forEach(function(id){ setVal(id, ''); });
+  ['sc-grade-co','sc-grade','tcg-grade-co','tcg-grade'].forEach(function(id){ setVal(id, ''); });
+  document.getElementById('form-qty').value = '1';
+  document.getElementById('form-purchase').value = '';
+  document.getElementById('form-value').value = '';
+}
+
+// ── SUBMIT ──
+async function submitItem() {
+  var cat = document.getElementById('form-category').value;
+  if (!cat) { showToast('Please select a category.', 'error'); return; }
+
+  var body = {
+    user_id: currentUser.id, category: cat,
+    quantity: parseInt(document.getElementById('form-qty').value) || 1,
+    purchase_price: parseFloat(document.getElementById('form-purchase').value) || 0,
+    estimated_value: parseFloat(document.getElementById('form-value').value) || 0,
+    notes: document.getElementById('form-notes').value.trim(),
+    value_updated_at: new Date().toISOString()
+  };
+
+  if (cat === 'sports_card') {
+    if (!document.getElementById('sc-player').value.trim()) { showToast('Player name is required.', 'error'); return; }
+    body.player_character = document.getElementById('sc-player').value.trim();
+    body.card_title = document.getElementById('sc-title').value.trim();
+    body.year = document.getElementById('sc-year').value.trim();
+    body.brand = document.getElementById('sc-brand').value.trim();
+    body.set_name = document.getElementById('sc-set').value.trim();
+    body.card_number = document.getElementById('sc-number').value.trim();
+    body.parallel = document.getElementById('sc-parallel').value.trim();
+    body.grade_company = document.getElementById('sc-grade-co').value;
+    body.grade = document.getElementById('sc-grade').value;
+  } else if (cat === 'tcg_card') {
+    if (!document.getElementById('tcg-player').value.trim()) { showToast('Character name is required.', 'error'); return; }
+    body.player_character = document.getElementById('tcg-player').value.trim();
+    body.card_title = document.getElementById('tcg-title').value.trim();
+    body.brand = document.getElementById('tcg-brand').value.trim();
+    body.set_name = document.getElementById('tcg-set').value.trim();
+    body.year = document.getElementById('tcg-year').value.trim();
+    body.card_number = document.getElementById('tcg-number').value.trim();
+    body.parallel = document.getElementById('tcg-parallel').value.trim();
+    body.grade_company = document.getElementById('tcg-grade-co').value;
+    body.grade = document.getElementById('tcg-grade').value;
+  } else if (cat === 'sealed_sports') {
+    if (!document.getElementById('ss-product').value.trim()) { showToast('Product name is required.', 'error'); return; }
+    body.product_name = document.getElementById('ss-product').value.trim();
+    body.brand = document.getElementById('ss-brand').value.trim();
+    body.set_name = document.getElementById('ss-set').value.trim();
+    body.year = document.getElementById('ss-year').value.trim();
+    body.box_type = document.getElementById('ss-box-type').value;
+  } else if (cat === 'sealed_tcg') {
+    if (!document.getElementById('st-product').value.trim()) { showToast('Product name is required.', 'error'); return; }
+    body.product_name = document.getElementById('st-product').value.trim();
+    body.brand = document.getElementById('st-brand').value.trim();
+    body.set_name = document.getElementById('st-set').value.trim();
+    body.year = document.getElementById('st-year').value.trim();
+    body.box_type = document.getElementById('st-box-type').value;
+  }
+
+  var url = editingId ? '/api/collection/' + editingId : '/api/collection';
+  var method = editingId ? 'PUT' : 'POST';
+  var btn = document.getElementById('submit-btn');
+  btn.textContent = 'Saving...'; btn.disabled = true;
+
+  try {
+    var res = await fetch(url, { method: method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    var data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Failed to save.', 'error'); btn.textContent = editingId ? 'Save Changes' : 'Add to Collection'; btn.disabled = false; return; }
+    showToast(editingId ? 'Item updated!' : 'Added to collection!', 'success');
+    closeModal();
+    await loadCollection();
+  } catch(e) {
+    showToast('Failed to save.', 'error');
+  }
+  btn.textContent = editingId ? 'Save Changes' : 'Add to Collection';
+  btn.disabled = false;
+}
+
+// ── DELETE ──
+async function deleteItem(id) {
+  if (!confirm('Remove this item from your collection?')) return;
+  try {
+    var res = await fetch('/api/collection/' + id, { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({user_id: currentUser.id}) });
+    if (!res.ok) { showToast('Failed to delete.', 'error'); return; }
+    showToast('Item removed.', 'success');
+    allItems = allItems.filter(function(i){ return i.id !== id; });
+    renderDashboard(); renderAllTables();
+  } catch(e) { showToast('Failed to delete.', 'error'); }
+}
+
+// ── SELL ──
+function openSellModal(id, name) {
+  sellItemId = id;
+  document.getElementById('sell-item-name').textContent = name;
+  document.getElementById('sell-price').value = '';
+  document.getElementById('sell-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('sell-modal').classList.add('open');
+}
+
+async function confirmSold() {
+  var soldPrice = parseFloat(document.getElementById('sell-price').value) || 0;
+  var soldDate = document.getElementById('sell-date').value;
+  try {
+    var res = await fetch('/api/collection/' + sellItemId + '/sell', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ user_id: currentUser.id, sold_price: soldPrice, sold_date: soldDate })
+    });
+    if (!res.ok) { showToast('Failed.', 'error'); return; }
+    showToast('Marked as sold!', 'success');
+    document.getElementById('sell-modal').classList.remove('open');
+    await loadCollection();
+  } catch(e) { showToast('Failed.', 'error'); }
+}
+
+// ── EXPORT ──
+function exportCSV() {
+  var active = allItems.filter(function(i){ return !i.is_sold; });
+  if (!active.length) { showToast('No items to export.', 'error'); return; }
+  var headers = ['Category','Name','Brand','Set','Year','Card#','Parallel','Grade Co','Grade','Qty','Purchase Price','Est. Value','Gain/Loss','Notes'];
+  var rows = active.map(function(i) {
+    var name = i.player_character || i.product_name || '';
+    var gl = ((parseFloat(i.estimated_value)||0) - (parseFloat(i.purchase_price)||0)) * (parseInt(i.quantity)||1);
+    return [i.category, name, i.brand||'', i.set_name||'', i.year||'', i.card_number||'', i.parallel||'', i.grade_company||'', i.grade||'', i.quantity||1, i.purchase_price||0, i.estimated_value||0, gl.toFixed(2), (i.notes||'').replace(/,/g,' ')].join(',');
+  });
+  var csv = [headers.join(','), ...rows].join('\n');
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = 'the-vault-' + new Date().toISOString().split('T')[0] + '.csv';
+  a.click();
+  showToast('Exported!', 'success');
+}
+
+// ── TOAST ──
+function showToast(msg, type) {
+  var colors = {success:'#27ae60', error:'#c0392b', info:'#2980b9'};
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:2rem;right:2rem;background:' + (colors[type]||colors.info) + ';color:#fff;padding:1rem 1.5rem;font-family:sans-serif;font-size:13px;letter-spacing:1px;z-index:9999;max-width:320px;display:block;';
+  setTimeout(function(){ t.style.display='none'; }, 3000);
+}
+
+init();
+</script>
+</body>
+</html>
