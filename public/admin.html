@@ -269,9 +269,17 @@
         </div>
         <div class="form-group"><label>Status</label>
           <select id="p-status">
-            <option value="received">Received</option>
+            <option value="order_arrived">Order Arrived</option>
+            <option value="card_prep">Card Prep</option>
+            <option value="shipped_to_psa">Shipped to PSA</option>
+            <option value="arrived_to_psa">Order Arrived to PSA</option>
+            <option value="order_prep">Order Prep</option>
+            <option value="research_id">Research & ID</option>
             <option value="grading">Grading</option>
-            <option value="shipped">Shipped</option>
+            <option value="assembly">Assembly</option>
+            <option value="qa_checks">QA Checks</option>
+            <option value="grades_ready">Grades Ready</option>
+            <option value="shipped_back">Shipped Back</option>
             <option value="complete">Complete</option>
           </select>
         </div>
@@ -1076,7 +1084,7 @@ function renderPSATable(data) {
     html += '<td><code style="color:var(--red-bright);font-size:12px;">' + s.submission_ref + '</code></td>';
     html += '<td style="font-size:12px;">' + (s.submitted_date||'—') + '</td>';
     html += '<td><select style="background:' + statusBgs[s.status] + ';border:1px solid ' + statusBorders[s.status] + ';color:' + statusColors[s.status] + ';padding:4px 8px;font-family:sans-serif;font-size:11px;outline:none;" onchange="updatePSAStatus(\'' + s.submission_ref + '\',this.value)">';
-    ['received','grading','shipped','complete'].forEach(function(st){html+='<option value="'+st+'"'+(s.status===st?' selected':'')+'>'+st.charAt(0).toUpperCase()+st.slice(1)+'</option>';});
+    [["order_arrived","Order Arrived"],["card_prep","Card Prep"],["shipped_to_psa","Shipped to PSA"],["arrived_to_psa","Order Arrived to PSA"],["order_prep","Order Prep"],["research_id","Research & ID"],["grading","Grading"],["assembly","Assembly"],["qa_checks","QA Checks"],["grades_ready","Grades Ready"],["shipped_back","Shipped Back"],["complete","Complete"]].forEach(function(st){html+='<option value="'+st[0]+'"'+(s.status===st[0]?' selected':'')+'>'+st[1]+'</option>';});
     html += '</select></td>';
     html += '<td><input style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:4px 8px;font-family:sans-serif;font-size:12px;outline:none;width:70px;" type="text" value="' + (s.grade||'') + '" placeholder="—" onblur="updatePSAGrade(\'' + s.submission_ref + '\',this.value)"></td>';
     html += '<td><button class="btn-danger btn-sm" onclick="deletePSA(\'' + s.submission_ref + '\')">Delete</button></td>';

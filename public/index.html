@@ -119,10 +119,12 @@
   .submissions-table td { padding:1rem; font-size:14px; border-bottom:1px solid var(--border); background:var(--card); }
   .submissions-table tr:hover td { background:var(--surface); }
   .status-badge { display:inline-block; padding:3px 10px; font-family:'Barlow Condensed',sans-serif; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; }
-  .status-badge.received { background:#1a2a1a; color:#4caf50; border:1px solid #2d4a2d; }
-  .status-badge.grading { background:#1a1a2a; color:#5b9cf6; border:1px solid #2d2d4a; }
-  .status-badge.shipped { background:#2a1a0a; color:#ff9800; border:1px solid #4a2d0a; }
-  .status-badge.complete { background:#2a0a0a; color:var(--red-bright); border:1px solid #4a1a1a; }
+  .status-badge.order_arrived, .status-badge.card_prep { background:#1a1a1a; color:var(--muted); border:1px solid #2a2a2a; }
+  .status-badge.shipped_to_psa, .status-badge.arrived_to_psa, .status-badge.shipped_back { background:#001a2a; color:#3498db; border:1px solid #00284a; }
+  .status-badge.order_prep, .status-badge.research_id { background:#1a0a2a; color:#9b59b6; border:1px solid #2a0a4a; }
+  .status-badge.grading, .status-badge.assembly, .status-badge.qa_checks { background:#2a1f00; color:#d4a843; border:1px solid #4a3500; }
+  .status-badge.grades_ready { background:#0a2a0a; color:#27ae60; border:1px solid #0f4a0f; }
+  .status-badge.complete { background:#0a2a0a; color:#27ae60; border:1px solid #0f4a0f; }
 
   .about-section { padding:3rem 2rem; max-width:900px; margin:0 auto; }
   .about-grid { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--border); }
@@ -1324,7 +1326,7 @@ async function loadAccountPSA() {
     let html = '<table class="submissions-table"><thead><tr><th>Card</th><th>Submitted</th><th>Sub ID</th><th>Status</th><th>Grade</th></tr></thead><tbody>';
     data.forEach(function (s) {
       html += '<tr><td>' + s.card_name + '</td><td>' + (s.submitted_date || '—') + '</td><td>#' + s.submission_ref + '</td>';
-      html += '<td><span class="status-badge ' + s.status + '">' + s.status + '</span></td>';
+      html += '<td><span class="status-badge ' + s.status + '">' + ({"order_arrived":"Order Arrived","card_prep":"Card Prep","shipped_to_psa":"Shipped to PSA","arrived_to_psa":"Arrived at PSA","order_prep":"Order Prep","research_id":"Research & ID","grading":"Grading","assembly":"Assembly","qa_checks":"QA Checks","grades_ready":"Grades Ready","shipped_back":"Shipped Back","complete":"Complete"}[s.status] || s.status) + '</span></td>';
       html += '<td>' + (s.grade || '—') + '</td></tr>';
     });
     html += '</tbody></table>';
@@ -1435,7 +1437,7 @@ async function lookupPSA() {
     let html = '<div class="section-label" style="margin-top:1.5rem;">Your Submissions</div><table class="submissions-table"><thead><tr><th>Card</th><th>Submitted</th><th>Sub ID</th><th>Status</th><th>Grade</th></tr></thead><tbody>';
     data.forEach(function (s) {
       html += '<tr><td>' + s.card_name + '</td><td>' + (s.submitted_date || '—') + '</td><td>#' + s.submission_ref + '</td>';
-      html += '<td><span class="status-badge ' + s.status + '">' + s.status + '</span></td>';
+      html += '<td><span class="status-badge ' + s.status + '">' + ({"order_arrived":"Order Arrived","card_prep":"Card Prep","shipped_to_psa":"Shipped to PSA","arrived_to_psa":"Arrived at PSA","order_prep":"Order Prep","research_id":"Research & ID","grading":"Grading","assembly":"Assembly","qa_checks":"QA Checks","grades_ready":"Grades Ready","shipped_back":"Shipped Back","complete":"Complete"}[s.status] || s.status) + '</span></td>';
       html += '<td>' + (s.grade || '—') + '</td></tr>';
     });
     html += '</tbody></table>';
