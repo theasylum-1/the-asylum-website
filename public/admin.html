@@ -112,6 +112,7 @@
     <div class="tab active" onclick="switchTab('breaks', this)">Breaks</div>
     <div class="tab" onclick="switchTab('shop', this)">Shop</div>
     <div class="tab" onclick="switchTab('psa', this)">PSA Submissions</div>
+    <div class="tab" onclick="switchTab('coupons', this)">Coupons</div>
   </div>
 
   <!-- BREAKS TAB -->
@@ -664,6 +665,10 @@ function switchTab(name, el) {
   document.querySelectorAll('.tab-content').forEach(function(t){t.classList.remove('active');});
   el.classList.add('active');
   document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'breaks') loadBreaks();
+  if (name === 'shop') loadShop();
+  if (name === 'psa') loadPSA();
+  if (name === 'coupons') loadCoupons();
 }
 
 // ── BREAKS ──
