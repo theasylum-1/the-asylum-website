@@ -364,7 +364,7 @@
     <li><a onclick="showPage('contact')" id="nav-contact">Contact</a></li>
     <li><a onclick="showPage('news')" id="nav-news">News</a></li>
     <li><a onclick="showPage('account')" id="nav-account">Account</a></li>
-    <li><a href="/collection.html" style="color:var(--red-bright);">The Vault</a></li>
+    <li><a onclick="showPage('vault')" id="nav-vault" style="color:var(--red-bright);">The Vault</a></li>
   </ul>
   <button class="nav-btn" onclick="openModal('signup')">Sign Up</button>
   <button class="cart-btn" onclick="openCart()" id="cart-nav-btn" style="background:none;border:1px solid var(--border);color:var(--text);padding:6px 14px;font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;gap:6px;position:relative;">
@@ -574,6 +574,61 @@
   .news-item-desc { font-size:12px; color:var(--muted); line-height:1.6; margin-bottom:0.4rem; }
   .news-item-date { font-size:11px; color:#555; letter-spacing:1px; }
 </style>
+
+
+<!-- THE VAULT COMING SOON -->
+<div id="page-vault" class="page">
+  <div style="max-width:680px;margin:0 auto;padding:4rem 2rem;text-align:center;">
+
+    <!-- Icon -->
+    <div style="font-size:72px;margin-bottom:1.5rem;filter:drop-shadow(0 0 20px rgba(192,57,43,0.4));">🔐</div>
+
+    <!-- Title -->
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:6px;text-transform:uppercase;color:var(--red-bright);margin-bottom:0.75rem;">Coming Soon</div>
+    <h1 style="font-family:'Bebas Neue',sans-serif;font-size:72px;letter-spacing:6px;color:var(--text);margin-bottom:0.5rem;line-height:1;">THE VAULT</h1>
+    <div style="width:60px;height:2px;background:var(--red);margin:0 auto 2rem;"></div>
+
+    <!-- Description -->
+    <p style="font-size:16px;color:var(--muted);line-height:1.8;margin-bottom:1rem;max-width:500px;margin-left:auto;margin-right:auto;">
+      The Vault is your personal card collection tracker — built for collectors, by collectors.
+    </p>
+
+    <!-- Feature list -->
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border);margin:2rem 0;text-align:left;">
+      <div style="background:var(--card);padding:1.25rem;">
+        <div style="font-size:20px;margin-bottom:0.5rem;">🏈</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text);margin-bottom:4px;">Sports Cards</div>
+        <div style="font-size:12px;color:var(--muted);">Raw and graded cards across all sports</div>
+      </div>
+      <div style="background:var(--card);padding:1.25rem;">
+        <div style="font-size:20px;margin-bottom:0.5rem;">⚡</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text);margin-bottom:4px;">TCG Cards</div>
+        <div style="font-size:12px;color:var(--muted);">Pokémon, One Piece, and more</div>
+      </div>
+      <div style="background:var(--card);padding:1.25rem;">
+        <div style="font-size:20px;margin-bottom:0.5rem;">📦</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text);margin-bottom:4px;">Sealed Product</div>
+        <div style="font-size:12px;color:var(--muted);">Track boxes, cases, and ETBs</div>
+      </div>
+      <div style="background:var(--card);padding:1.25rem;">
+        <div style="font-size:20px;margin-bottom:0.5rem;">📈</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text);margin-bottom:4px;">Gain / Loss</div>
+        <div style="font-size:12px;color:var(--muted);">See your collection's real value</div>
+      </div>
+    </div>
+
+    <!-- Discord CTA -->
+    <p style="font-size:14px;color:var(--muted);margin-bottom:1.5rem;">
+      Join our Discord to be the first to know when The Vault drops — plus get early access.
+    </p>
+    <a href="https://discord.gg/vVJjMYTc9b" target="_blank" style="display:inline-flex;align-items:center;gap:10px;background:#5865F2;color:#fff;text-decoration:none;padding:14px 32px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;">
+      <svg width="20" height="20" viewBox="0 0 71 55" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M60.1 4.9A58.5 58.5 0 0 0 45.5.7a40 40 0 0 0-1.8 3.7 54.3 54.3 0 0 0-16.3 0A38 38 0 0 0 25.6.7 58.4 58.4 0 0 0 11 4.9C1.6 19 -.9 32.7.3 46.2a58.9 58.9 0 0 0 18 9.1 42 42 0 0 0 3.7-6 38.4 38.4 0 0 1-5.8-2.8l1.4-1a42 42 0 0 0 35.8 0l1.4 1a38.3 38.3 0 0 1-5.8 2.8 42 42 0 0 0 3.7 6 58.7 58.7 0 0 0 18-9c1.5-15.6-2.5-29.2-10.6-41.4zM23.8 38c-3.5 0-6.4-3.2-6.4-7.2s2.8-7.2 6.4-7.2c3.5 0 6.4 3.2 6.3 7.2 0 4-2.8 7.2-6.3 7.2zm23.4 0c-3.5 0-6.4-3.2-6.4-7.2s2.8-7.2 6.4-7.2c3.5 0 6.4 3.2 6.3 7.2 0 4-2.8 7.2-6.3 7.2z"/></svg>
+      Join the Discord
+    </a>
+
+    <p style="font-size:11px;color:#444;letter-spacing:2px;text-transform:uppercase;margin-top:2rem;">The Asylum Collective · theasylumcollective.com</p>
+  </div>
+</div>
 
 <!-- RESET PASSWORD PAGE -->
 <div id="page-reset" class="page">
@@ -1686,7 +1741,7 @@ window.showPage = function (id) {
 // On page load, restore from hash
 document.addEventListener('DOMContentLoaded', function() {
   var hash = window.location.hash.replace('#', '');
-  var validPages = ['home','breaks','shop','psa','about','contact','sms','account','reset','news'];
+  var validPages = ['home','breaks','shop','psa','about','contact','sms','account','reset','news','vault'];
   if (hash && validPages.includes(hash)) {
     setTimeout(function() { window.showPage(hash); }, 100);
   }
@@ -1695,7 +1750,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Handle browser back/forward buttons
 window.addEventListener('hashchange', function() {
   var hash = window.location.hash.replace('#', '');
-  var validPages = ['home','breaks','shop','psa','about','contact','sms','account','reset','news'];
+  var validPages = ['home','breaks','shop','psa','about','contact','sms','account','reset','news','vault'];
   if (hash && validPages.includes(hash)) {
     // Call original showPage to avoid double hash writing
     if (_originalShowPage) _originalShowPage(hash);
