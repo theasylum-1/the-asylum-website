@@ -1158,6 +1158,84 @@ app.post('/api/collection/:id/sell', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Failed to mark as sold.' }); }
 });
 
+
+// ─────────────────────────────────────────
+// COUPONS — VALIDATE
+// ─────────────────────────────────────────
+app.post('/api/coupons/validate', async (req, res) => {
+  const { code, amount } = req.body;
+  if (!code) return res.status(400).json({ error: 'Code required.' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data, error } = await db.from('coupons').select('*').eq('code', code.toUpperCase().trim()).eq('is_active', true).single();
+    if (error || !data) return res.status(404).json({ error: 'Invalid or expired coupon code.' });
+    if (data.expires_at && new Date(data.expires_at) < new Date()) return res.status(400).json({ error: 'This coupon has expired.' });
+    if (data.usage_limit && data.usage_count >= data.usage_limit) return res.status(400).json({ error: 'This coupon has reached its usage limit.' });
+    const originalAmount = parseFloat(amount) || 0;
+    const discount = data.type === 'percent' ? (originalAmount * data.value / 100) : data.value;
+    const finalAmount = Math.max(0, originalAmount - discount).toFixed(2);
+    res.json({ valid: true, code: data.code, type: data.type, value: data.value, discount: parseFloat(discount.toFixed(2)), final_amount: parseFloat(finalAmount), coupon_id: data.id });
+  } catch (err) { res.status(500).json({ error: 'Failed to validate coupon.' }); }
+});
+
+// ─────────────────────────────────────────
+// COUPONS — ADMIN GET ALL
+// ─────────────────────────────────────────
+app.get('/api/coupons/admin/all', async (req, res) => {
+  if (req.headers['x-admin-key'] !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data, error } = await db.from('coupons').select('*').order('created_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  } catch (err) { res.status(500).json({ error: 'Failed.' }); }
+});
+
+// ─────────────────────────────────────────
+// COUPONS — ADMIN ADD
+// ─────────────────────────────────────────
+app.post('/api/coupons/admin/add', async (req, res) => {
+  const { code, type, value, usage_limit, expires_at, admin_key } = req.body;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  if (!code || !type || !value) return res.status(400).json({ error: 'Code, type and value required.' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data, error } = await db.from('coupons').insert({ code: code.toUpperCase().trim(), type, value: parseFloat(value), usage_limit: usage_limit || null, expires_at: expires_at || null }).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, coupon: data });
+  } catch (err) { res.status(500).json({ error: 'Failed to create coupon.' }); }
+});
+
+// ─────────────────────────────────────────
+// COUPONS — ADMIN TOGGLE ACTIVE
+// ─────────────────────────────────────────
+app.post('/api/coupons/admin/toggle', async (req, res) => {
+  const { id, is_active, admin_key } = req.body;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    await db.from('coupons').update({ is_active }).eq('id', id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Failed.' }); }
+});
+
+// ─────────────────────────────────────────
+// COUPONS — ADMIN DELETE
+// ─────────────────────────────────────────
+app.delete('/api/coupons/admin/delete/:id', async (req, res) => {
+  if (req.headers['x-admin-key'] !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    await db.from('coupons').delete().eq('id', req.params.id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Failed.' }); }
+});
+
 // ─────────────────────────────────────────
 // HOBBY NEWS — RSS AGGREGATOR
 // ─────────────────────────────────────────

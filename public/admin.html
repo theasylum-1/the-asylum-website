@@ -369,6 +369,27 @@
   </div>
 </div>
 
+    <!-- COUPONS TAB -->
+    <div id="tab-coupons" class="tab-content" style="display:none;">
+      <div class="admin-card">
+        <h3>Create Coupon Code</h3>
+        <div class="form-grid three">
+          <div class="form-group"><label>Code</label><input type="text" id="c-code" placeholder="e.g. SAVE20" oninput="this.value=this.value.toUpperCase()"></div>
+          <div class="form-group"><label>Type</label><select id="c-type"><option value="percent">Percent Off (%)</option><option value="fixed">Fixed Amount ($)</option></select></div>
+          <div class="form-group"><label>Value</label><input type="number" id="c-value" placeholder="e.g. 10" min="0" step="0.01"></div>
+        </div>
+        <div class="form-grid two">
+          <div class="form-group"><label>Usage Limit (blank = unlimited)</label><input type="number" id="c-limit" placeholder="e.g. 100"></div>
+          <div class="form-group"><label>Expiry Date (optional)</label><input type="date" id="c-expires"></div>
+        </div>
+        <button class="btn-primary" onclick="addCoupon()">+ Create Coupon</button>
+      </div>
+      <div class="admin-card">
+        <h3>All Coupons</h3>
+        <div id="coupons-list"><p style="color:var(--muted);">Loading...</p></div>
+      </div>
+    </div>
+
 <script>
 var ADMIN_KEY = '';
 var allBreaks = [], allShop = [], allPSA = [];
@@ -500,6 +521,69 @@ function getSlotsForBreak(breakType, sport, randomSpots) {
     var basePrice = parseFloat(document.getElementById('b-price').value) || 0;
     return Array.from({length:spots}, function(_,i){ return {name:'Spot ' + (i+1), type:'random', price:basePrice}; });
   }
+}
+
+// ── COUPONS ──
+async function loadCoupons() {
+  try {
+    var res = await fetch('/api/coupons/admin/all', { headers: {'x-admin-key': ADMIN_KEY} });
+    var data = await res.json();
+    var container = document.getElementById('coupons-list');
+    if (!data.length) { container.innerHTML = '<p style="color:var(--muted);font-size:13px;">No coupons yet.</p>'; return; }
+    var html = '<table style="width:100%;border-collapse:collapse;">';
+    html += '<thead><tr><th style="text-align:left;padding:8px;font-family:sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);">Code</th><th style="text-align:left;padding:8px;font-family:sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);">Discount</th><th style="text-align:left;padding:8px;font-family:sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);">Used</th><th style="text-align:left;padding:8px;font-family:sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);">Expires</th><th style="text-align:left;padding:8px;font-family:sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);">Status</th><th style="padding:8px;border-bottom:1px solid var(--border);"></th></tr></thead><tbody>';
+    data.forEach(function(c) {
+      var discount = c.type === 'percent' ? c.value + '%' : '$' + c.value;
+      var expires = c.expires_at ? new Date(c.expires_at).toLocaleDateString() : 'Never';
+      var usage = c.usage_count + (c.usage_limit ? '/' + c.usage_limit : '');
+      html += '<tr>';
+      html += '<td style="padding:10px 8px;font-family:sans-serif;font-weight:700;font-size:14px;border-bottom:1px solid var(--border);">' + c.code + '</td>';
+      html += '<td style="padding:10px 8px;border-bottom:1px solid var(--border);">' + discount + ' off</td>';
+      html += '<td style="padding:10px 8px;color:var(--muted);font-size:13px;border-bottom:1px solid var(--border);">' + usage + '</td>';
+      html += '<td style="padding:10px 8px;color:var(--muted);font-size:13px;border-bottom:1px solid var(--border);">' + expires + '</td>';
+      html += '<td style="padding:10px 8px;border-bottom:1px solid var(--border);"><span style="padding:2px 8px;font-family:sans-serif;font-size:11px;letter-spacing:1px;background:' + (c.is_active?'#1a3a1a':'#2a1a1a') + ';color:' + (c.is_active?'#5bd95b':'#d95b5b') + ';">' + (c.is_active?'ACTIVE':'INACTIVE') + '</span></td>';
+      html += '<td style="padding:10px 8px;border-bottom:1px solid var(--border);"><div style="display:flex;gap:6px;">';
+      html += '<button class="btn-outline btn-sm" onclick="toggleCoupon('' + c.id + '',' + !c.is_active + ')">' + (c.is_active?'Disable':'Enable') + '</button>';
+      html += '<button class="btn-outline btn-sm" style="color:var(--red-bright);border-color:var(--red-bright);" onclick="deleteCoupon('' + c.id + '')">Delete</button>';
+      html += '</div></td></tr>';
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  } catch(e) { showToast('Failed to load coupons.', 'error'); }
+}
+
+async function addCoupon() {
+  var code = document.getElementById('c-code').value.trim().toUpperCase();
+  var type = document.getElementById('c-type').value;
+  var value = document.getElementById('c-value').value;
+  var limit = document.getElementById('c-limit').value;
+  var expires = document.getElementById('c-expires').value;
+  if (!code || !value) { showToast('Code and value required.', 'error'); return; }
+  try {
+    var res = await fetch('/api/coupons/admin/add', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({code, type, value, usage_limit: limit||null, expires_at: expires||null, admin_key:ADMIN_KEY}) });
+    var data = await res.json();
+    if (!res.ok) { showToast(data.error||'Failed.', 'error'); return; }
+    showToast('Coupon ' + code + ' created!', 'success');
+    ['c-code','c-value','c-limit','c-expires'].forEach(function(id){document.getElementById(id).value='';});
+    loadCoupons();
+  } catch(e) { showToast('Failed to create coupon.', 'error'); }
+}
+
+async function toggleCoupon(id, is_active) {
+  try {
+    await fetch('/api/coupons/admin/toggle', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id, is_active, admin_key:ADMIN_KEY}) });
+    showToast(is_active ? 'Coupon enabled.' : 'Coupon disabled.', 'success');
+    loadCoupons();
+  } catch(e) { showToast('Failed.', 'error'); }
+}
+
+async function deleteCoupon(id) {
+  if (!confirm('Delete this coupon permanently?')) return;
+  try {
+    await fetch('/api/coupons/admin/delete/' + id, { method:'DELETE', headers:{'x-admin-key':ADMIN_KEY} });
+    showToast('Coupon deleted.', 'success');
+    loadCoupons();
+  } catch(e) { showToast('Failed.', 'error'); }
 }
 
 // ── AUTH ──
