@@ -530,25 +530,77 @@ async function loadCoupons() {
     var data = await res.json();
     var container = document.getElementById('coupons-list');
     if (!data.length) { container.innerHTML = '<p style="color:var(--muted);font-size:13px;">No coupons yet.</p>'; return; }
-    var html = '<table style="width:100%;border-collapse:collapse;">';
-    html += '<thead><tr><th style="text-align:left;padding:8px;font-family:sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);">Code</th><th style="text-align:left;padding:8px;font-family:sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);">Discount</th><th style="text-align:left;padding:8px;font-family:sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);">Used</th><th style="text-align:left;padding:8px;font-family:sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);">Expires</th><th style="text-align:left;padding:8px;font-family:sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);">Status</th><th style="padding:8px;border-bottom:1px solid var(--border);"></th></tr></thead><tbody>';
+
+    var table = document.createElement('table');
+    table.style.cssText = 'width:100%;border-collapse:collapse;';
+    table.innerHTML = '<thead><tr>' +
+      ['Code','Discount','Used','Expires','Status','Actions'].map(function(h){
+        return '<th style="text-align:left;padding:8px;font-family:sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);">' + h + '</th>';
+      }).join('') + '</tr></thead>';
+
+    var tbody = document.createElement('tbody');
     data.forEach(function(c) {
-      var discount = c.type === 'percent' ? c.value + '%' : '$' + c.value;
+      var discount = c.type === 'percent' ? c.value + '% off' : '$' + c.value + ' off';
       var expires = c.expires_at ? new Date(c.expires_at).toLocaleDateString() : 'Never';
       var usage = c.usage_count + (c.usage_limit ? '/' + c.usage_limit : '');
-      html += '<tr>';
-      html += '<td style="padding:10px 8px;font-family:sans-serif;font-weight:700;font-size:14px;border-bottom:1px solid var(--border);">' + c.code + '</td>';
-      html += '<td style="padding:10px 8px;border-bottom:1px solid var(--border);">' + discount + ' off</td>';
-      html += '<td style="padding:10px 8px;color:var(--muted);font-size:13px;border-bottom:1px solid var(--border);">' + usage + '</td>';
-      html += '<td style="padding:10px 8px;color:var(--muted);font-size:13px;border-bottom:1px solid var(--border);">' + expires + '</td>';
-      html += '<td style="padding:10px 8px;border-bottom:1px solid var(--border);"><span style="padding:2px 8px;font-family:sans-serif;font-size:11px;letter-spacing:1px;background:' + (c.is_active?'#1a3a1a':'#2a1a1a') + ';color:' + (c.is_active?'#5bd95b':'#d95b5b') + ';">' + (c.is_active?'ACTIVE':'INACTIVE') + '</span></td>';
-      html += '<td style="padding:10px 8px;border-bottom:1px solid var(--border);"><div style="display:flex;gap:6px;">';
-      html += '<button class="btn-outline btn-sm" onclick="toggleCoupon('' + c.id + '',' + !c.is_active + ')">' + (c.is_active?'Disable':'Enable') + '</button>';
-      html += '<button class="btn-outline btn-sm" style="color:var(--red-bright);border-color:var(--red-bright);" onclick="deleteCoupon('' + c.id + '')">Delete</button>';
-      html += '</div></td></tr>';
+
+      var tr = document.createElement('tr');
+      
+      var tdCode = document.createElement('td');
+      tdCode.style.cssText = 'padding:10px 8px;font-weight:700;font-size:14px;border-bottom:1px solid var(--border);';
+      tdCode.textContent = c.code;
+
+      var tdDiscount = document.createElement('td');
+      tdDiscount.style.cssText = 'padding:10px 8px;border-bottom:1px solid var(--border);';
+      tdDiscount.textContent = discount;
+
+      var tdUsage = document.createElement('td');
+      tdUsage.style.cssText = 'padding:10px 8px;color:var(--muted);font-size:13px;border-bottom:1px solid var(--border);';
+      tdUsage.textContent = usage;
+
+      var tdExpires = document.createElement('td');
+      tdExpires.style.cssText = 'padding:10px 8px;color:var(--muted);font-size:13px;border-bottom:1px solid var(--border);';
+      tdExpires.textContent = expires;
+
+      var tdStatus = document.createElement('td');
+      tdStatus.style.cssText = 'padding:10px 8px;border-bottom:1px solid var(--border);';
+      var badge = document.createElement('span');
+      badge.style.cssText = 'padding:2px 8px;font-size:11px;letter-spacing:1px;background:' + (c.is_active?'#1a3a1a':'#2a1a1a') + ';color:' + (c.is_active?'#5bd95b':'#d95b5b') + ';';
+      badge.textContent = c.is_active ? 'ACTIVE' : 'INACTIVE';
+      tdStatus.appendChild(badge);
+
+      var tdActions = document.createElement('td');
+      tdActions.style.cssText = 'padding:10px 8px;border-bottom:1px solid var(--border);';
+      var btnWrap = document.createElement('div');
+      btnWrap.style.cssText = 'display:flex;gap:6px;';
+
+      var toggleBtn = document.createElement('button');
+      toggleBtn.className = 'btn-outline btn-sm';
+      toggleBtn.textContent = c.is_active ? 'Disable' : 'Enable';
+      (function(id, active) {
+        toggleBtn.onclick = function() { toggleCoupon(id, !active); };
+      })(c.id, c.is_active);
+
+      var deleteBtn = document.createElement('button');
+      deleteBtn.className = 'btn-outline btn-sm';
+      deleteBtn.style.cssText = 'color:var(--red-bright);border-color:var(--red-bright);';
+      deleteBtn.textContent = 'Delete';
+      (function(id) {
+        deleteBtn.onclick = function() { deleteCoupon(id); };
+      })(c.id);
+
+      btnWrap.appendChild(toggleBtn);
+      btnWrap.appendChild(deleteBtn);
+      tdActions.appendChild(btnWrap);
+
+      tr.appendChild(tdCode); tr.appendChild(tdDiscount); tr.appendChild(tdUsage);
+      tr.appendChild(tdExpires); tr.appendChild(tdStatus); tr.appendChild(tdActions);
+      tbody.appendChild(tr);
     });
-    html += '</tbody></table>';
-    container.innerHTML = html;
+
+    table.appendChild(tbody);
+    container.innerHTML = '';
+    container.appendChild(table);
   } catch(e) { showToast('Failed to load coupons.', 'error'); }
 }
 
