@@ -141,7 +141,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
     const { createClient } = require('@supabase/supabase-js');
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://the-asylum-website.vercel.app/#reset'
+      redirectTo: 'https://theasylumcollective.com/#reset'
     });
     if (error) return res.status(500).json({ error: error.message });
     res.json({ success: true });
@@ -664,7 +664,7 @@ async function sendOrderConfirmation({ to, name, item, amount, paymentMethod, or
         subject: 'Order Confirmed — The Asylum',
         html: `
           <div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#0a0a0a;color:#e8e0d8;padding:2rem;border-top:3px solid #e74c3c;">
-            <img src="https://the-asylum-website.vercel.app/images/img_001.png" alt="The Asylum" style="height:60px;margin-bottom:1.5rem;">
+            <img src="https://theasylumcollective.com/images/img_001.png" alt="The Asylum" style="height:60px;margin-bottom:1.5rem;">
             <h1 style="font-size:28px;letter-spacing:3px;margin-bottom:0.5rem;color:#e8e0d8;">ORDER CONFIRMED</h1>
             <p style="color:#888;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin-bottom:2rem;">Thanks for your order, ${name || 'valued customer'}!</p>
             <div style="background:#1f1f1f;border:1px solid #2a2a2a;border-left:3px solid #e74c3c;padding:1.25rem;margin-bottom:1.5rem;">
@@ -1248,7 +1248,7 @@ app.post('/api/contact', async (req, res) => {
             '<div style="background:#f5f5f5;padding:1.5rem;margin-top:1rem;border-left:4px solid #c0392b;">' +
             '<p style="margin:0;white-space:pre-wrap;">' + message + '</p>' +
             '</div>' +
-            '<p style="color:#888;font-size:12px;margin-top:1rem;">Sent from the-asylum-website.vercel.app — reply directly to this email to respond to ' + name + '</p>' +
+            '<p style="color:#888;font-size:12px;margin-top:1rem;">Sent from theasylumcollective.com — reply directly to this email to respond to ' + name + '</p>' +
             '</div>'
         })
       });
