@@ -365,6 +365,9 @@
     <li><a href="/collection.html" style="color:var(--red-bright);">The Vault</a></li>
   </ul>
   <button class="nav-btn" onclick="openModal('signup')">Sign Up</button>
+  <button class="cart-btn" onclick="openCart()" id="cart-nav-btn" style="background:none;border:1px solid var(--border);color:var(--text);padding:6px 14px;font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;gap:6px;position:relative;">
+    🛒 <span id="cart-count" style="display:none;background:var(--red);color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;display:none;align-items:center;justify-content:center;font-weight:700;">0</span>
+  </button>
   <button class="hamburger" id="hamburger" onclick="toggleMobileNav()" aria-label="Menu">
     <span></span><span></span><span></span>
   </button>
@@ -1485,7 +1488,9 @@ async function loadShopItems() {
       btn.className = 'btn-primary';
       btn.style.cssText = 'width:100%;margin-top:1rem;padding:10px;';
       btn.textContent = 'Buy Now';
-      btn.onclick = function() { setOrderAndCheckout(parseFloat(item.price), item.title); };
+      btn.onclick = function() {
+        addToCart({ id: item.id, name: item.title, price: parseFloat(item.price), type: 'shop' });
+      };
       card.appendChild(img);
       card.appendChild(title);
       card.appendChild(meta);
@@ -1876,6 +1881,196 @@ function setOrderAndCheckout(amount, itemName) {
   window.currentOrderItem = itemName;
   openModal('checkout');
 }
+
+
+// ─────────────────────────────────────────
+// CART SYSTEM
+// ─────────────────────────────────────────
+var cart = [];
+var cartCoupon = null;
+
+function addToCart(item) {
+  // item = { id, name, price, type, breakId, breakType, breakSport, slotIds, slotNames }
+  cart.push(item);
+  updateCartCount();
+  showToast(item.name + ' added to cart!', 'success');
+  openCart();
+}
+
+function removeFromCart(index) {
+  cart.splice(index, 1);
+  cartCoupon = null; // reset coupon when cart changes
+  updateCartCount();
+  renderCartItems();
+  updateCartTotals();
+}
+
+function updateCartCount() {
+  var count = cart.length;
+  var btn = document.getElementById('cart-nav-btn');
+  var countEl = document.getElementById('cart-count');
+  if (countEl) {
+    countEl.textContent = count;
+    countEl.style.display = count > 0 ? 'flex' : 'none';
+  }
+}
+
+function openCart() {
+  document.getElementById('cart-overlay').style.display = 'block';
+  document.getElementById('cart-drawer').style.display = 'flex';
+  renderCartItems();
+  updateCartTotals();
+}
+
+function closeCart() {
+  document.getElementById('cart-overlay').style.display = 'none';
+  document.getElementById('cart-drawer').style.display = 'none';
+}
+
+function renderCartItems() {
+  var container = document.getElementById('cart-items');
+  if (!cart.length) {
+    container.innerHTML = '<div style="text-align:center;padding:3rem 1rem;color:var(--muted);"><div style="font-size:48px;margin-bottom:1rem;">🛒</div><div style="font-family:sans-serif;font-size:13px;letter-spacing:3px;text-transform:uppercase;">Your cart is empty</div><p style="font-size:12px;margin-top:0.5rem;">Browse breaks and shop items to add them here.</p></div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  cart.forEach(function(item, index) {
+    var div = document.createElement('div');
+    div.style.cssText = 'background:var(--card);border:1px solid var(--border);padding:1rem;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;';
+
+    var info = document.createElement('div');
+    info.style.flex = '1';
+
+    var name = document.createElement('div');
+    name.style.cssText = 'font-weight:600;font-size:14px;margin-bottom:4px;';
+    name.textContent = item.name;
+
+    var meta = document.createElement('div');
+    meta.style.cssText = 'font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;';
+    meta.textContent = item.type === 'break' ? 'Break Slot' : 'Shop Item';
+
+    if (item.slotNames && item.slotNames.length) {
+      var slots = document.createElement('div');
+      slots.style.cssText = 'font-size:12px;color:var(--muted);';
+      slots.textContent = 'Slots: ' + item.slotNames.join(', ');
+      info.appendChild(name);
+      info.appendChild(meta);
+      info.appendChild(slots);
+    } else {
+      info.appendChild(name);
+      info.appendChild(meta);
+    }
+
+    var right = document.createElement('div');
+    right.style.cssText = 'text-align:right;flex-shrink:0;';
+
+    var price = document.createElement('div');
+    price.style.cssText = 'font-family:sans-serif;font-size:16px;font-weight:700;color:var(--gold);margin-bottom:6px;';
+    price.textContent = '$' + parseFloat(item.price).toFixed(2);
+
+    var removeBtn = document.createElement('button');
+    removeBtn.style.cssText = 'background:none;border:1px solid var(--border);color:var(--muted);padding:3px 8px;font-family:sans-serif;font-size:11px;cursor:pointer;';
+    removeBtn.textContent = 'Remove';
+    (function(i) { removeBtn.onclick = function() { removeFromCart(i); }; })(index);
+
+    right.appendChild(price);
+    right.appendChild(removeBtn);
+    div.appendChild(info);
+    div.appendChild(right);
+    container.appendChild(div);
+  });
+}
+
+function updateCartTotals() {
+  var subtotal = cart.reduce(function(s, i) { return s + parseFloat(i.price); }, 0);
+  var discount = 0;
+  var total = subtotal;
+
+  if (cartCoupon) {
+    discount = cartCoupon.type === 'percent' ? subtotal * cartCoupon.value / 100 : cartCoupon.value;
+    total = Math.max(0, subtotal - discount);
+  }
+
+  document.getElementById('cart-subtotal').textContent = '$' + subtotal.toFixed(2);
+  document.getElementById('cart-total').textContent = '$' + total.toFixed(2);
+
+  var discountRow = document.getElementById('cart-discount-row');
+  var discountAmt = document.getElementById('cart-discount-amt');
+  if (cartCoupon && discount > 0) {
+    discountRow.style.display = 'flex';
+    discountAmt.textContent = '-$' + discount.toFixed(2);
+  } else {
+    discountRow.style.display = 'none';
+  }
+
+  window.currentOrderAmount = total;
+}
+
+async function applyCartCoupon() {
+  var code = document.getElementById('cart-coupon-input').value.trim();
+  var result = document.getElementById('cart-coupon-result');
+  if (!code) { result.style.display='block'; result.style.color='var(--red-bright)'; result.textContent='Enter a code first.'; return; }
+
+  var subtotal = cart.reduce(function(s,i){ return s + parseFloat(i.price); }, 0);
+  result.style.display='block'; result.style.color='var(--muted)'; result.textContent='Checking...';
+
+  try {
+    var res = await fetch('/api/coupons/validate', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ code, amount: subtotal })
+    });
+    var data = await res.json();
+    if (!res.ok) { result.style.color='var(--red-bright)'; result.textContent='✕ ' + (data.error||'Invalid code.'); cartCoupon=null; updateCartTotals(); return; }
+    cartCoupon = data;
+    result.style.color='var(--green)';
+    result.textContent='✓ ' + (data.type==='percent' ? data.value+'% off applied!' : '$'+data.value+' off applied!');
+    updateCartTotals();
+  } catch(e) {
+    result.style.color='var(--red-bright)'; result.textContent='✕ Could not validate code.';
+  }
+}
+
+function cartCheckout() {
+  if (!cart.length) { showToast('Your cart is empty.', 'error'); return; }
+  closeCart();
+  // Set the order amount and open checkout modal
+  var total = parseFloat(document.getElementById('cart-total').textContent.replace('$','')) || 0;
+  window.currentOrderAmount = total;
+  window.currentOrderItem = cart.length === 1 ? cart[0].name : cart.length + ' items';
+  openModal('checkout');
+}
+
+// Override openBreakEntry to use cart
+window.openBreakEntry = function(breakId, breakName, price, breakType, sport) {
+  if (!breakType || breakType === 'standard') {
+    // No slots — add directly to cart
+    addToCart({ id: breakId, name: breakName, price: parseFloat((price+'').replace('$','')), type: 'break' });
+  } else {
+    openBreakSlotPicker(breakId, breakName, price, breakType, sport);
+  }
+};
+
+// Override proceedToBreakCheckout to add to cart instead
+window.proceedToBreakCheckout = function() {
+  if (!window.selectedSlotIds || !window.selectedSlotIds.length) return;
+  var slotNames = window.selectedSlotIds.map(function(id) {
+    var s = window.breakSlotsData && window.breakSlotsData.find(function(x){return x.id===id;});
+    return s ? s.slot_name : id;
+  });
+  var overlay = document.getElementById('slot-picker-overlay');
+  if (overlay) overlay.remove();
+
+  addToCart({
+    id: window.currentBreakId,
+    name: window.currentOrderItem || 'Break',
+    price: window.currentOrderAmount,
+    type: 'break',
+    slotIds: window.selectedSlotIds.slice(),
+    slotNames: slotNames
+  });
+};
+
 
 // ─────────────────────────────────────────
 // BREAK SLOT PICKER
@@ -2298,6 +2493,12 @@ window.openModal = function(type) {
 
 window.loadBreaks = loadBreaks;
 window.loadShopItems = loadShopItems;
+window.openCart = openCart;
+window.closeCart = closeCart;
+window.applyCartCoupon = applyCartCoupon;
+window.cartCheckout = cartCheckout;
+window.addToCart = addToCart;
+window.removeFromCart = removeFromCart;
 window.applyCoupon = applyCoupon;
 window.loadNews = loadNews;
 window.toggleMobileNav = toggleMobileNav;
@@ -2327,6 +2528,43 @@ window.proceedToBreakCheckout = proceedToBreakCheckout;
 
 
 </script>
+
+<!-- CART DRAWER -->
+<div id="cart-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:250;" onclick="closeCart()"></div>
+<div id="cart-drawer" style="display:none;position:fixed;top:0;right:0;bottom:0;width:420px;max-width:100vw;background:var(--deep);border-left:1px solid var(--border);z-index:251;flex-direction:column;overflow:hidden;">
+  <div style="padding:1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:3px;">YOUR CART</div>
+    <button onclick="closeCart()" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;">×</button>
+  </div>
+  <div id="cart-items" style="flex:1;overflow-y:auto;padding:1rem;"></div>
+  <div id="cart-footer" style="padding:1.5rem;border-top:1px solid var(--border);">
+    <!-- Coupon -->
+    <div style="margin-bottom:1rem;">
+      <div style="font-family:sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:0.5rem;">Coupon Code</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="cart-coupon-input" placeholder="e.g. ASYLUM10" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 12px;font-family:sans-serif;font-size:14px;outline:none;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+        <button onclick="applyCartCoupon()" style="background:none;border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;white-space:nowrap;">Apply</button>
+      </div>
+      <div id="cart-coupon-result" style="margin-top:6px;font-size:13px;display:none;"></div>
+    </div>
+    <!-- Totals -->
+    <div style="margin-bottom:1rem;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:13px;color:var(--muted);">Subtotal</span>
+        <span id="cart-subtotal" style="font-size:14px;">$0.00</span>
+      </div>
+      <div id="cart-discount-row" style="display:none;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:13px;color:var(--green);">Discount</span>
+        <span id="cart-discount-amt" style="font-size:14px;color:var(--green);"></span>
+      </div>
+      <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:10px;margin-top:6px;">
+        <span style="font-family:sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Total</span>
+        <span id="cart-total" style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--red-bright);letter-spacing:2px;">$0.00</span>
+      </div>
+    </div>
+    <button onclick="cartCheckout()" id="cart-checkout-btn" style="width:100%;background:var(--red);color:#fff;border:none;padding:14px;font-family:sans-serif;font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;cursor:pointer;">Proceed to Checkout</button>
+  </div>
+</div>
 
 <!-- VENMO MODAL -->
 <div class="manual-pay-modal" id="venmo-modal" onclick="closePayModal('venmo')">
