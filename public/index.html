@@ -752,7 +752,7 @@
     <!-- CHECKOUT -->
     <div id="modal-forgot-content" style="display:none;">
       <h2>RESET PASSWORD</h2>
-      <div class="modal-sub">Enter your email and we'll send a reset link</div>
+      <div class="modal-sub">Enter your email and we will send a reset link</div>
       <div class="modal-form">
         <input type="email" id="forgot-email" placeholder="Your email address">
         <button class="btn-primary" style="width:100%;padding:14px;" onclick="submitForgotPassword()">Send Reset Link</button>
@@ -803,7 +803,7 @@
           <input type="checkbox" id="sms-optin-checkout" onchange="togglePhoneField('checkout')">
           <div class="sms-optin-text">
             <strong>&#128241; Get an instant coupon for your NEXT order!</strong>
-            <span>Join our text list and we'll send you a discount code right now for your next purchase.</span>
+            <span>Join our text list and we will send you a discount code right now for your next purchase.</span>
             <span class="sms-fine-print">Msg & data rates may apply. Reply STOP to unsubscribe anytime.</span>
           </div>
         </label>
@@ -845,7 +845,7 @@
   <div class="page-header">
     <div class="page-header-text">
       <h1>CONTACT US</h1>
-      <p>We'll get back to you as soon as possible</p>
+      <p>We will get back to you as soon as possible</p>
       <div class="red-bar"></div>
     </div>
   </div>
@@ -931,15 +931,15 @@
           </div>
           <div class="faq-item">
             <div class="faq-q">How do I submit cards for PSA grading?</div>
-            <div class="faq-a">Reach out via the form or Discord and we'll walk you through the drop-off process. Once submitted, you can track every step on the PSA Tracker page.</div>
+            <div class="faq-a">Reach out via the form or Discord and we will walk you through the drop-off process. Once submitted, you can track every step on the PSA Tracker page.</div>
           </div>
           <div class="faq-item">
             <div class="faq-q">How long does PSA grading take?</div>
-            <div class="faq-a">Turnaround times vary by PSA service level. We'll keep your tracker updated at every stage so you always know where your cards are.</div>
+            <div class="faq-a">Turnaround times vary by PSA service level. We will keep your tracker updated at every stage so you always know where your cards are.</div>
           </div>
           <div class="faq-item">
             <div class="faq-q">Do you do wholesale or collabs?</div>
-            <div class="faq-a">Yes — reach out via the form and select Wholesale / Partnership. We'll get back to you within a couple of days.</div>
+            <div class="faq-a">Yes — reach out via the form and select Wholesale / Partnership. We will get back to you within a couple of days.</div>
           </div>
         </div>
       </div>
@@ -2668,9 +2668,18 @@ async function confirmPaymentSent() {
     overlay.innerHTML = '<div style="background:var(--deep);border:1px solid var(--border);border-top:3px solid var(--green);padding:2rem;max-width:480px;width:100%;text-align:center;">' +
       '<div style="font-size:48px;margin-bottom:1rem;">✅</div>' +
       '<h2 style="font-family:sans-serif;font-size:24px;font-weight:900;letter-spacing:3px;color:var(--green);margin-bottom:0.5rem;">PAYMENT SENT!</h2>' +
-      '<p style="font-size:14px;color:var(--muted);margin-bottom:1.5rem;">Your slots are held pending payment confirmation from The Asylum. We'll confirm shortly!</p>' +
-      '<button onclick="document.getElementById('pending-overlay').remove();cart=[];cartCoupon=null;updateCartCount();" style="background:var(--red);color:#fff;border:none;padding:14px 32px;font-family:sans-serif;font-size:13px;font-weight:700;letter-spacing:3px;text-transform:uppercase;cursor:pointer;">Done</button>' +
+      '<p style="font-size:14px;color:var(--muted);margin-bottom:1.5rem;">Your slots are held pending payment confirmation from The Asylum. We will confirm shortly!</p>' +
+      '<button id="done-pending-btn" style="background:var(--red);color:#fff;border:none;padding:14px 32px;font-family:sans-serif;font-size:13px;font-weight:700;letter-spacing:3px;text-transform:uppercase;cursor:pointer;">Done</button>' +
       '</div>';
+    var doneBtn = document.getElementById('done-pending-btn');
+    if (doneBtn) {
+      doneBtn.onclick = function() {
+        document.getElementById('pending-overlay').remove();
+        cart = [];
+        cartCoupon = null;
+        updateCartCount();
+      };
+    }
   }
 }
 
