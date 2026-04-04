@@ -374,6 +374,15 @@
         <select id="edit-s-instock"><option value="true">In Stock</option><option value="false">Out of Stock</option></select>
       </div>
     </div>
+    <div class="form-group" style="margin-bottom:1rem;">
+      <label>Product Image</label>
+      <div id="edit-image-current" style="margin-bottom:0.75rem;"></div>
+      <div class="upload-area" onclick="document.getElementById('edit-s-image-input').click()" style="padding:1rem;text-align:center;border:2px dashed var(--border);cursor:pointer;font-size:13px;color:var(--muted);">
+        Click to upload a new image (replaces current)
+        <img id="edit-s-image-preview" style="max-height:100px;margin-top:0.5rem;display:none;width:100%;object-fit:contain;">
+      </div>
+      <input type="file" id="edit-s-image-input" accept="image/*" style="display:none;" onchange="previewEditImage(this)">
+    </div>
     <button class="btn-primary" style="width:100%;" onclick="saveShopEdit()">Save Changes</button>
   </div>
 </div>
@@ -940,6 +949,21 @@ function openShopEdit(id) {
   document.getElementById('edit-s-price').value = i.price;
   document.getElementById('edit-s-instock').value = i.in_stock ? 'true' : 'false';
   if (document.getElementById('edit-s-quantity')) document.getElementById('edit-s-quantity').value = i.quantity || 1;
+  // Show current image
+  var currentImgDiv = document.getElementById('edit-image-current');
+  if (currentImgDiv) {
+    if (i.image_url) {
+      currentImgDiv.innerHTML = '<div style="font-size:11px;color:var(--muted);margin-bottom:4px;letter-spacing:2px;text-transform:uppercase;">Current Image</div><img src="' + i.image_url + '" style="max-height:80px;object-fit:contain;border:1px solid var(--border);padding:4px;">';
+    } else {
+      currentImgDiv.innerHTML = '<div style="font-size:11px;color:var(--muted);">No image currently set.</div>';
+    }
+  }
+  // Reset image preview and input
+  var editPreview = document.getElementById('edit-s-image-preview');
+  var editInput = document.getElementById('edit-s-image-input');
+  if (editPreview) editPreview.style.display = 'none';
+  if (editInput) editInput.value = '';
+
   document.getElementById('edit-shop-modal').classList.add('open');
 }
 
@@ -954,6 +978,15 @@ async function saveShopEdit() {
     in_stock: document.getElementById('edit-s-instock').value === 'true',
     quantity: parseInt(document.getElementById('edit-s-quantity').value) || 1
   };
+
+  // Handle image upload if a new image was selected
+  var imgInput = document.getElementById('edit-s-image-input');
+  if (imgInput && imgInput.files[0]) {
+    showToast('Uploading image...', 'info');
+    var imageUrl = await uploadImage(imgInput.files[0]);
+    if (imageUrl) body.image_url = imageUrl;
+  }
+
   try {
     var res = await fetch('/api/shop/admin/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
     var data = await res.json();
