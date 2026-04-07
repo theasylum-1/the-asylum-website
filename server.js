@@ -1448,6 +1448,83 @@ app.post('/api/contact', async (req, res) => {
 });
 
 // ─────────────────────────────────────────
+// SHIPMENTS — GET ALL FOR USER
+// ─────────────────────────────────────────
+app.get('/api/shipments/:user_id', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data, error } = await db
+      .from('shipments')
+      .select('*')
+      .eq('user_id', req.params.user_id)
+      .order('updated_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load shipments.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// SHIPMENTS — ADD
+// ─────────────────────────────────────────
+app.post('/api/shipments', async (req, res) => {
+  const { user_id } = req.body;
+  if (!user_id) return res.status(400).json({ error: 'User ID required.' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const item = {
+      user_id,
+      description: req.body.description || null,
+      tracking_number: req.body.tracking_number || null,
+      carrier: req.body.carrier || 'other',
+      direction: req.body.direction || 'incoming',
+      status: req.body.status || 'label_created',
+      notes: req.body.notes || null,
+    };
+    const { data, error } = await db.from('shipments').insert(item).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, shipment: data });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add shipment.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// SHIPMENTS — UPDATE
+// ─────────────────────────────────────────
+app.put('/api/shipments/:id', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const updates = { ...req.body, updated_at: new Date().toISOString() };
+    delete updates.user_id;
+    const { data, error } = await db.from('shipments').update(updates).eq('id', req.params.id).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, shipment: data });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update shipment.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// SHIPMENTS — DELETE
+// ─────────────────────────────────────────
+app.delete('/api/shipments/:id', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { error } = await db.from('shipments').delete().eq('id', req.params.id);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete shipment.' });
+  }
+});
+
+// ─────────────────────────────────────────
 // START SERVER
 // ─────────────────────────────────────────
 const PORT = process.env.PORT || 3000;

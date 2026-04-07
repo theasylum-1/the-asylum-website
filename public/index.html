@@ -893,11 +893,11 @@
       <div class="contact-info-wrap">
         <div class="section-label">Other Ways to Reach Us</div>
         <div class="contact-info-cards">
-          <a href="mailto:theasylumbranding@gmail.com" class="contact-info-card">
+          <a href="/cdn-cgi/l/email-protection#35415d5054464c5940585747545b515c5b52755258545c591b565a58" class="contact-info-card">
             <div class="contact-info-icon">&#9993;</div>
             <div>
               <div class="contact-info-title">Email</div>
-              <div class="contact-info-val">theasylumbranding@gmail.com</div>
+              <div class="contact-info-val"><span class="__cf_email__" data-cfemail="93e7fbf6f2e0eaffe6fef1e1f2fdf7fafdf4d3f4fef2faffbdf0fcfe">[email&#160;protected]</span></div>
             </div>
           </a>
           <a href="https://discord.gg/vVJjMYTc9b" target="_blank" class="contact-info-card">
@@ -949,7 +949,7 @@
 </div>
 
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 window.breaks = { hsa: [], ab: [] };
 var breaks = window.breaks;
 var currentBrand = 'hsa';
@@ -1358,11 +1358,24 @@ function renderAccountPage() {
         <div class="section-label">My Orders</div>
         <div id="account-orders-list"><p style="color:var(--muted);font-size:14px;">Loading orders...</p></div>
       </div>
+      <div style="background:var(--card);border:1px solid var(--border);padding:1.5rem;margin-bottom:1.5rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;">
+          <div class="section-label" style="margin-bottom:0;">Shipment Tracker</div>
+          <button class="btn-primary" onclick="openShipmentForm()" style="padding:6px 16px;font-size:11px;">+ Add Shipment</button>
+        </div>
+        <div id="shipment-filters" style="display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap;">
+          <button class="btn-outline shipment-filter active" data-filter="active" onclick="setShipmentFilter(this)" style="padding:4px 12px;font-size:11px;">Active</button>
+          <button class="btn-outline shipment-filter" data-filter="delivered" onclick="setShipmentFilter(this)" style="padding:4px 12px;font-size:11px;">Delivered</button>
+          <button class="btn-outline shipment-filter" data-filter="all" onclick="setShipmentFilter(this)" style="padding:4px 12px;font-size:11px;">All</button>
+        </div>
+        <div id="shipment-list"><p style="color:var(--muted);font-size:14px;">Loading shipments...</p></div>
+      </div>
       <button class="btn-outline" onclick="signOut()" style="width:100%;padding:12px;">Sign Out</button>
     </div>`;
 
   loadAccountPSA();
   loadAccountAddress();
+  loadShipments();
 }
 
 async function loadAccountPSA() {
@@ -1464,6 +1477,539 @@ async function saveAddress() {
     loadAccountAddress();
   } catch (err) {
     showToast('Failed to save address.', 'error');
+  }
+}
+
+// ─────────────────────────────────────────
+// SHIPMENT TRACKER
+// ─────────────────────────────────────────
+var shipmentData = [];
+var shipmentFilter = 'active';
+var editingShipmentId = null;
+
+var CARRIERS = [
+  { id: 'usps', name: 'USPS', color: '#1a3a6b', url: 'https://tools.usps.com/go/TrackConfirmAction?tLabels=' },
+  { id: 'ups', name: 'UPS', color: '#351c15', url: 'https://www.ups.com/track?tracknum=' },
+  { id: 'fedex', name: 'FedEx', color: '#4d148c', url: 'https://www.fedex.com/fedextrack/?trknbr=' },
+  { id: 'dhl', name: 'DHL', color: '#ba0c2f', url: 'https://www.dhl.com/us-en/home/tracking/tracking-express.html?submit=1&tracking-id=' },
+  { id: 'amazon', name: 'Amazon', color: '#ff9900', url: 'https://track.amazon.com/tracking/' },
+  { id: 'ontrac', name: 'OnTrac', color: '#006838', url: 'https://www.ontrac.com/tracking/?number=' },
+  { id: 'other', name: 'Other', color: '#666', url: '' }
+];
+
+var SHIP_STATUSES = [
+  { id: 'label_created', label: 'Label Created', icon: '\uD83C\uDFF7\uFE0F', step: 0 },
+  { id: 'in_transit', label: 'In Transit', icon: '\uD83D\uDE9A', step: 1 },
+  { id: 'out_for_delivery', label: 'Out for Delivery', icon: '\uD83D\uDCEC', step: 2 },
+  { id: 'delivered', label: 'Delivered', icon: '\u2705', step: 3 },
+  { id: 'exception', label: 'Exception', icon: '\u26A0\uFE0F', step: -1 }
+];
+
+function getCarrier(id) {
+  for (var i = 0; i < CARRIERS.length; i++) { if (CARRIERS[i].id === id) return CARRIERS[i]; }
+  return CARRIERS[CARRIERS.length - 1];
+}
+
+function getShipStatus(id) {
+  for (var i = 0; i < SHIP_STATUSES.length; i++) { if (SHIP_STATUSES[i].id === id) return SHIP_STATUSES[i]; }
+  return SHIP_STATUSES[0];
+}
+
+function setShipmentFilter(btn) {
+  shipmentFilter = btn.getAttribute('data-filter');
+  var btns = document.querySelectorAll('.shipment-filter');
+  btns.forEach(function(b) { b.classList.remove('active'); b.style.background = 'transparent'; b.style.color = 'var(--muted)'; b.style.borderColor = 'var(--border)'; });
+  btn.classList.add('active');
+  btn.style.background = 'var(--red)';
+  btn.style.color = '#fff';
+  btn.style.borderColor = 'var(--red)';
+  renderShipmentList();
+}
+
+async function loadShipments() {
+  if (!currentUser) return;
+  try {
+    var res = await fetch(API + '/api/shipments/' + currentUser.id, {
+      headers: { 'Authorization': 'Bearer ' + (currentSession ? currentSession.access_token : '') }
+    });
+    shipmentData = await res.json();
+    renderShipmentList();
+    // Init filter button styles
+    var btns = document.querySelectorAll('.shipment-filter');
+    btns.forEach(function(b) {
+      if (b.getAttribute('data-filter') === shipmentFilter) {
+        b.style.background = 'var(--red)'; b.style.color = '#fff'; b.style.borderColor = 'var(--red)';
+      } else {
+        b.style.background = 'transparent'; b.style.color = 'var(--muted)'; b.style.borderColor = 'var(--border)';
+      }
+    });
+  } catch (err) {
+    var el = document.getElementById('shipment-list');
+    if (el) el.innerHTML = '<p style="color:var(--muted);font-size:14px;">Could not load shipments.</p>';
+  }
+}
+
+function renderShipmentList() {
+  var el = document.getElementById('shipment-list');
+  if (!el) return;
+
+  var filtered = shipmentData.filter(function(s) {
+    if (shipmentFilter === 'active') return s.status !== 'delivered';
+    if (shipmentFilter === 'delivered') return s.status === 'delivered';
+    return true;
+  });
+
+  if (!filtered.length) {
+    el.innerHTML = '';
+    var msg = document.createElement('div');
+    msg.style.cssText = 'text-align:center;padding:2rem 1rem;color:var(--muted);';
+    var icon = document.createElement('div');
+    icon.style.cssText = 'font-size:32px;margin-bottom:0.5rem;';
+    icon.textContent = '\uD83D\uDCE6';
+    msg.appendChild(icon);
+    var txt = document.createElement('p');
+    txt.style.cssText = 'font-size:13px;';
+    txt.textContent = shipmentData.length === 0 ? 'No shipments yet. Add one to start tracking!' : 'No shipments match this filter.';
+    msg.appendChild(txt);
+    el.appendChild(msg);
+    return;
+  }
+
+  el.innerHTML = '';
+  filtered.forEach(function(ship) {
+    var card = buildShipmentCard(ship);
+    el.appendChild(card);
+  });
+}
+
+function buildShipmentCard(ship) {
+  var carrier = getCarrier(ship.carrier);
+  var status = getShipStatus(ship.status);
+  var isIncoming = ship.direction === 'incoming';
+
+  var card = document.createElement('div');
+  card.style.cssText = 'background:var(--surface);border:1px solid var(--border);padding:1rem 1rem 1rem 1.25rem;margin-bottom:8px;position:relative;overflow:hidden;transition:border-color 0.2s;';
+  card.onmouseenter = function() { card.style.borderColor = 'var(--red)'; };
+  card.onmouseleave = function() { card.style.borderColor = 'var(--border)'; };
+
+  // Carrier accent strip
+  var strip = document.createElement('div');
+  strip.style.cssText = 'position:absolute;top:0;left:0;width:4px;height:100%;background:' + carrier.color + ';';
+  card.appendChild(strip);
+
+  // Header row
+  var header = document.createElement('div');
+  header.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;gap:8px;';
+
+  var left = document.createElement('div');
+  left.style.cssText = 'flex:1;min-width:0;';
+
+  // Title + direction badge
+  var titleRow = document.createElement('div');
+  titleRow.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
+
+  var title = document.createElement('span');
+  title.style.cssText = 'font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;color:var(--text);';
+  title.textContent = ship.description || 'Untitled Shipment';
+  titleRow.appendChild(title);
+
+  var dirBadge = document.createElement('span');
+  dirBadge.style.cssText = 'font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:2px 8px;' + (isIncoming ? 'background:rgba(76,175,80,0.15);color:#66bb6a;' : 'background:rgba(255,152,0,0.15);color:#ffa726;');
+  dirBadge.textContent = (isIncoming ? '\uD83D\uDCE5 Incoming' : '\uD83D\uDCE4 Outgoing');
+  titleRow.appendChild(dirBadge);
+  left.appendChild(titleRow);
+
+  // Carrier + tracking row
+  var metaRow = document.createElement('div');
+  metaRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;';
+
+  var carrierBadge = document.createElement('span');
+  carrierBadge.style.cssText = 'font-size:11px;font-weight:600;padding:2px 8px;background:' + carrier.color + '33;color:#ccc;letter-spacing:0.5px;font-family:Barlow Condensed,sans-serif;';
+  carrierBadge.textContent = carrier.name;
+  metaRow.appendChild(carrierBadge);
+
+  if (ship.tracking_number) {
+    var trackNum = document.createElement('span');
+    trackNum.style.cssText = 'font-size:12px;color:var(--muted);font-family:monospace;letter-spacing:0.5px;';
+    trackNum.textContent = ship.tracking_number;
+    metaRow.appendChild(trackNum);
+  }
+  left.appendChild(metaRow);
+  header.appendChild(left);
+
+  // Action buttons
+  var actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;gap:4px;flex-shrink:0;';
+
+  if (ship.tracking_number && carrier.url) {
+    var trackBtn = document.createElement('button');
+    trackBtn.style.cssText = 'background:none;border:1px solid var(--border);color:var(--muted);padding:4px 10px;font-size:11px;font-family:Barlow Condensed,sans-serif;font-weight:600;letter-spacing:1px;cursor:pointer;text-transform:uppercase;';
+    trackBtn.textContent = 'Track';
+    trackBtn.onclick = function() { window.open(carrier.url + ship.tracking_number, '_blank'); };
+    actions.appendChild(trackBtn);
+  }
+
+  var editBtn = document.createElement('button');
+  editBtn.style.cssText = 'background:none;border:1px solid var(--border);color:var(--muted);padding:4px 8px;font-size:11px;cursor:pointer;';
+  editBtn.textContent = '\u270F\uFE0F';
+  editBtn.onclick = function() { openShipmentForm(ship); };
+  actions.appendChild(editBtn);
+
+  var delBtn = document.createElement('button');
+  delBtn.style.cssText = 'background:none;border:1px solid rgba(192,57,43,0.3);color:var(--red-bright);padding:4px 8px;font-size:11px;cursor:pointer;';
+  delBtn.textContent = '\uD83D\uDDD1\uFE0F';
+  delBtn.onclick = function() { confirmDeleteShipment(ship.id); };
+  actions.appendChild(delBtn);
+
+  header.appendChild(actions);
+  card.appendChild(header);
+
+  // Status row
+  var statusRow = document.createElement('div');
+  statusRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-top:10px;';
+
+  var statusLeft = document.createElement('div');
+  statusLeft.style.cssText = 'display:flex;align-items:center;gap:6px;';
+  var statusIcon = document.createElement('span');
+  statusIcon.style.fontSize = '14px';
+  statusIcon.textContent = status.icon;
+  statusLeft.appendChild(statusIcon);
+  var statusLabel = document.createElement('span');
+  statusLabel.style.cssText = 'font-size:12px;font-weight:600;color:var(--text);font-family:Barlow Condensed,sans-serif;letter-spacing:1px;';
+  statusLabel.textContent = status.label;
+  statusLeft.appendChild(statusLabel);
+  statusRow.appendChild(statusLeft);
+
+  if (ship.updated_at) {
+    var ago = document.createElement('span');
+    ago.style.cssText = 'font-size:11px;color:#555;';
+    ago.textContent = timeAgo(ship.updated_at);
+    statusRow.appendChild(ago);
+  }
+  card.appendChild(statusRow);
+
+  // Progress bar
+  var progressBar = document.createElement('div');
+  progressBar.style.cssText = 'display:flex;gap:3px;margin-top:8px;';
+  if (status.step === -1) {
+    var exBar = document.createElement('div');
+    exBar.style.cssText = 'flex:1;height:4px;background:rgba(192,57,43,0.4);';
+    progressBar.appendChild(exBar);
+  } else {
+    for (var i = 0; i < 4; i++) {
+      var seg = document.createElement('div');
+      seg.style.cssText = 'flex:1;height:4px;background:' + (i <= status.step ? 'var(--red-bright)' : 'rgba(255,255,255,0.06)') + ';';
+      progressBar.appendChild(seg);
+    }
+  }
+  card.appendChild(progressBar);
+
+  // Quick status buttons
+  var quickRow = document.createElement('div');
+  quickRow.style.cssText = 'display:flex;gap:4px;margin-top:10px;flex-wrap:wrap;';
+  SHIP_STATUSES.forEach(function(st) {
+    var qBtn = document.createElement('button');
+    var isActive = ship.status === st.id;
+    qBtn.style.cssText = 'padding:3px 8px;font-size:10px;font-family:Barlow Condensed,sans-serif;font-weight:' + (isActive ? '700' : '500') + ';letter-spacing:0.5px;cursor:pointer;border:1px solid ' + (isActive ? 'var(--red)' : 'var(--border)') + ';background:' + (isActive ? 'var(--red)' : 'transparent') + ';color:' + (isActive ? '#fff' : 'var(--muted)') + ';';
+    qBtn.textContent = st.icon + ' ' + st.label;
+    qBtn.onclick = function() { quickUpdateStatus(ship.id, st.id); };
+    quickRow.appendChild(qBtn);
+  });
+  card.appendChild(quickRow);
+
+  // Notes
+  if (ship.notes) {
+    var notesDiv = document.createElement('div');
+    notesDiv.style.cssText = 'margin-top:10px;font-size:12px;color:var(--muted);font-style:italic;border-top:1px solid var(--border);padding-top:8px;';
+    notesDiv.textContent = ship.notes;
+    card.appendChild(notesDiv);
+  }
+
+  return card;
+}
+
+function timeAgo(dateStr) {
+  var diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  return diff + 'd ago';
+}
+
+async function quickUpdateStatus(shipId, newStatus) {
+  if (!currentUser) return;
+  try {
+    var res = await fetch(API + '/api/shipments/' + shipId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    });
+    if (!res.ok) { showToast('Failed to update status.', 'error'); return; }
+    // Update local data
+    for (var i = 0; i < shipmentData.length; i++) {
+      if (shipmentData[i].id === shipId) {
+        shipmentData[i].status = newStatus;
+        shipmentData[i].updated_at = new Date().toISOString();
+        break;
+      }
+    }
+    renderShipmentList();
+  } catch (err) {
+    showToast('Failed to update status.', 'error');
+  }
+}
+
+function confirmDeleteShipment(shipId) {
+  if (confirm('Delete this shipment?')) {
+    deleteShipment(shipId);
+  }
+}
+
+async function deleteShipment(shipId) {
+  try {
+    var res = await fetch(API + '/api/shipments/' + shipId, { method: 'DELETE' });
+    if (!res.ok) { showToast('Failed to delete.', 'error'); return; }
+    shipmentData = shipmentData.filter(function(s) { return s.id !== shipId; });
+    renderShipmentList();
+    showToast('Shipment deleted.', 'success');
+  } catch (err) {
+    showToast('Failed to delete shipment.', 'error');
+  }
+}
+
+function openShipmentForm(ship) {
+  editingShipmentId = ship ? ship.id : null;
+
+  // Build modal using DOM manipulation
+  var overlay = document.createElement('div');
+  overlay.id = 'shipment-modal-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:200;padding:1rem;';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+  var modal = document.createElement('div');
+  modal.style.cssText = 'background:var(--card);border:1px solid var(--border);padding:1.5rem;width:100%;max-width:460px;max-height:90vh;overflow-y:auto;';
+
+  var heading = document.createElement('h2');
+  heading.style.cssText = 'font-family:Bebas Neue,sans-serif;font-size:28px;letter-spacing:3px;margin-bottom:1.25rem;';
+  heading.textContent = ship ? 'EDIT SHIPMENT' : 'ADD SHIPMENT';
+  modal.appendChild(heading);
+
+  // Description
+  var descLabel = document.createElement('label');
+  descLabel.style.cssText = 'display:block;font-family:Barlow Condensed,sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;';
+  descLabel.textContent = 'Description';
+  modal.appendChild(descLabel);
+  var descInput = document.createElement('input');
+  descInput.type = 'text';
+  descInput.id = 'ship-description';
+  descInput.placeholder = 'e.g. Pokemon booster box, PSA return...';
+  descInput.value = ship ? (ship.description || '') : '';
+  descInput.style.cssText = 'width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:Barlow,sans-serif;font-size:14px;outline:none;margin-bottom:12px;box-sizing:border-box;';
+  modal.appendChild(descInput);
+
+  // Direction
+  var dirLabel = document.createElement('label');
+  dirLabel.style.cssText = 'display:block;font-family:Barlow Condensed,sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;';
+  dirLabel.textContent = 'Direction';
+  modal.appendChild(dirLabel);
+  var dirRow = document.createElement('div');
+  dirRow.style.cssText = 'display:flex;gap:8px;margin-bottom:12px;';
+  ['incoming', 'outgoing'].forEach(function(dir) {
+    var btn = document.createElement('button');
+    var sel = (ship ? ship.direction : 'incoming') === dir;
+    btn.className = 'ship-dir-btn';
+    btn.setAttribute('data-dir', dir);
+    btn.style.cssText = 'flex:1;padding:10px;font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border:2px solid ' + (sel ? 'var(--red)' : 'var(--border)') + ';background:' + (sel ? 'rgba(192,57,43,0.12)' : 'var(--surface)') + ';color:' + (sel ? 'var(--text)' : 'var(--muted)') + ';';
+    btn.textContent = (dir === 'incoming' ? '\uD83D\uDCE5 Incoming' : '\uD83D\uDCE4 Outgoing');
+    btn.onclick = function() {
+      document.querySelectorAll('.ship-dir-btn').forEach(function(b) {
+        b.style.borderColor = 'var(--border)';
+        b.style.background = 'var(--surface)';
+        b.style.color = 'var(--muted)';
+      });
+      btn.style.borderColor = 'var(--red)';
+      btn.style.background = 'rgba(192,57,43,0.12)';
+      btn.style.color = 'var(--text)';
+    };
+    dirRow.appendChild(btn);
+  });
+  modal.appendChild(dirRow);
+
+  // Carrier
+  var carLabel = document.createElement('label');
+  carLabel.style.cssText = 'display:block;font-family:Barlow Condensed,sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;';
+  carLabel.textContent = 'Shipping Carrier';
+  modal.appendChild(carLabel);
+  var carGrid = document.createElement('div');
+  carGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;';
+  CARRIERS.forEach(function(c) {
+    var btn = document.createElement('button');
+    var sel = (ship ? ship.carrier : 'usps') === c.id;
+    btn.className = 'ship-carrier-btn';
+    btn.setAttribute('data-carrier', c.id);
+    btn.style.cssText = 'padding:8px 10px;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:600;letter-spacing:1px;cursor:pointer;text-align:left;border:2px solid ' + (sel ? c.color : 'var(--border)') + ';background:' + (sel ? c.color + '22' : 'var(--surface)') + ';color:' + (sel ? 'var(--text)' : 'var(--muted)') + ';';
+    btn.textContent = c.name;
+    btn.onclick = function() {
+      document.querySelectorAll('.ship-carrier-btn').forEach(function(b) {
+        b.style.borderColor = 'var(--border)';
+        b.style.background = 'var(--surface)';
+        b.style.color = 'var(--muted)';
+      });
+      btn.style.borderColor = c.color;
+      btn.style.background = c.color + '22';
+      btn.style.color = 'var(--text)';
+    };
+    carGrid.appendChild(btn);
+  });
+  modal.appendChild(carGrid);
+
+  // Tracking number
+  var trackLabel = document.createElement('label');
+  trackLabel.style.cssText = 'display:block;font-family:Barlow Condensed,sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;';
+  trackLabel.textContent = 'Tracking Number';
+  modal.appendChild(trackLabel);
+  var trackInput = document.createElement('input');
+  trackInput.type = 'text';
+  trackInput.id = 'ship-tracking';
+  trackInput.placeholder = 'Enter tracking number...';
+  trackInput.value = ship ? (ship.tracking_number || '') : '';
+  trackInput.style.cssText = 'width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:monospace;font-size:14px;letter-spacing:0.5px;outline:none;margin-bottom:12px;box-sizing:border-box;';
+  modal.appendChild(trackInput);
+
+  // Status
+  var statLabel = document.createElement('label');
+  statLabel.style.cssText = 'display:block;font-family:Barlow Condensed,sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;';
+  statLabel.textContent = 'Status';
+  modal.appendChild(statLabel);
+  var statRow = document.createElement('div');
+  statRow.style.cssText = 'display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;';
+  SHIP_STATUSES.forEach(function(st) {
+    var btn = document.createElement('button');
+    var sel = (ship ? ship.status : 'label_created') === st.id;
+    btn.className = 'ship-status-btn';
+    btn.setAttribute('data-status', st.id);
+    btn.style.cssText = 'padding:6px 12px;font-family:Barlow Condensed,sans-serif;font-size:11px;font-weight:600;letter-spacing:1px;cursor:pointer;border:2px solid ' + (sel ? 'var(--red)' : 'var(--border)') + ';background:' + (sel ? 'rgba(192,57,43,0.12)' : 'var(--surface)') + ';color:' + (sel ? 'var(--text)' : 'var(--muted)') + ';';
+    btn.textContent = st.icon + ' ' + st.label;
+    btn.onclick = function() {
+      document.querySelectorAll('.ship-status-btn').forEach(function(b) {
+        b.style.borderColor = 'var(--border)';
+        b.style.background = 'var(--surface)';
+        b.style.color = 'var(--muted)';
+      });
+      btn.style.borderColor = 'var(--red)';
+      btn.style.background = 'rgba(192,57,43,0.12)';
+      btn.style.color = 'var(--text)';
+    };
+    statRow.appendChild(btn);
+  });
+  modal.appendChild(statRow);
+
+  // Notes
+  var noteLabel = document.createElement('label');
+  noteLabel.style.cssText = 'display:block;font-family:Barlow Condensed,sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;';
+  noteLabel.textContent = 'Notes (optional)';
+  modal.appendChild(noteLabel);
+  var noteInput = document.createElement('textarea');
+  noteInput.id = 'ship-notes';
+  noteInput.placeholder = 'Any additional details...';
+  noteInput.rows = 3;
+  noteInput.value = ship ? (ship.notes || '') : '';
+  noteInput.style.cssText = 'width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:Barlow,sans-serif;font-size:14px;outline:none;margin-bottom:16px;box-sizing:border-box;resize:vertical;min-height:60px;';
+  modal.appendChild(noteInput);
+
+  // Action buttons
+  var btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;gap:10px;';
+
+  var cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn-outline';
+  cancelBtn.style.cssText = 'flex:1;padding:12px;';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.onclick = function() { overlay.remove(); };
+  btnRow.appendChild(cancelBtn);
+
+  var saveBtn = document.createElement('button');
+  saveBtn.className = 'btn-primary';
+  saveBtn.style.cssText = 'flex:1;padding:12px;';
+  saveBtn.textContent = ship ? 'Save Changes' : 'Add Shipment';
+  saveBtn.onclick = function() { submitShipmentForm(overlay); };
+  btnRow.appendChild(saveBtn);
+
+  modal.appendChild(btnRow);
+  overlay.appendChild(modal);
+
+  // Remove existing overlay if present
+  var existing = document.getElementById('shipment-modal-overlay');
+  if (existing) existing.remove();
+
+  document.body.appendChild(overlay);
+  descInput.focus();
+}
+
+async function submitShipmentForm(overlay) {
+  if (!currentUser) return;
+
+  // Gather values
+  var description = document.getElementById('ship-description').value.trim();
+  var tracking = document.getElementById('ship-tracking').value.trim();
+  var notes = document.getElementById('ship-notes').value.trim();
+
+  // Get selected direction
+  var direction = 'incoming';
+  var dirBtns = document.querySelectorAll('.ship-dir-btn');
+  dirBtns.forEach(function(b) {
+    if (b.style.borderColor === 'var(--red)') direction = b.getAttribute('data-dir');
+  });
+
+  // Get selected carrier
+  var carrier = 'usps';
+  var carBtns = document.querySelectorAll('.ship-carrier-btn');
+  carBtns.forEach(function(b) {
+    if (b.style.color === 'var(--text)') carrier = b.getAttribute('data-carrier');
+  });
+
+  // Get selected status
+  var status = 'label_created';
+  var statBtns = document.querySelectorAll('.ship-status-btn');
+  statBtns.forEach(function(b) {
+    if (b.style.borderColor === 'var(--red)') status = b.getAttribute('data-status');
+  });
+
+  if (!description) { showToast('Please enter a description.', 'error'); return; }
+
+  var body = {
+    description: description,
+    tracking_number: tracking,
+    carrier: carrier,
+    direction: direction,
+    status: status,
+    notes: notes
+  };
+
+  try {
+    var res;
+    if (editingShipmentId) {
+      res = await fetch(API + '/api/shipments/' + editingShipmentId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+    } else {
+      body.user_id = currentUser.id;
+      res = await fetch(API + '/api/shipments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+    }
+
+    var data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Failed to save.', 'error'); return; }
+
+    overlay.remove();
+    showToast(editingShipmentId ? 'Shipment updated!' : 'Shipment added!', 'success');
+    loadShipments();
+  } catch (err) {
+    showToast('Failed to save shipment.', 'error');
   }
 }
 
@@ -2827,22 +3373,8 @@ window.proceedToBreakCheckout = proceedToBreakCheckout;
   <div class="manual-pay-box" onclick="event.stopPropagation()">
     <button class="modal-close" onclick="closePayModal('zelle')">&#215;</button>
     <h2>Pay via Zelle</h2>
-    <span class="pay-handle" style="font-size:22px;letter-spacing:1px;">asylum.breaks@gmail.com</span>
+    <span class="pay-handle" style="font-size:22px;letter-spacing:1px;"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="c6a7b5bfaab3abe8a4b4a3a7adb586a1aba7afaae8a5a9ab">[email&#160;protected]</a></span>
     <div class="pay-steps">
       <ol>
         <li>Open your bank app and go to Zelle</li>
-        <li>Send to <strong>asylum.breaks@gmail.com</strong>
-          <button class="copy-btn" onclick="copyToClipboard('asylum.breaks@gmail.com')">Copy</button>
-        </li>
-        <li>Enter the amount for your order</li>
-        <li>In the memo write your <strong>order details</strong></li>
-        <li>Send payment and message us to confirm</li>
-      </ol>
-    </div>
-    <button class="btn-outline" style="width:100%;" onclick="closePayModal('zelle')">Close</button>
-  </div>
-</div>
-
-
-</body>
-</html>
+        <li>Send to <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="ddbcaea4b1a8b0f3bfafb8b
