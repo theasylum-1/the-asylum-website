@@ -1707,19 +1707,6 @@ function buildShipmentCard(ship) {
   }
   card.appendChild(progressBar);
 
-  // Quick status buttons
-  var quickRow = document.createElement('div');
-  quickRow.style.cssText = 'display:flex;gap:4px;margin-top:10px;flex-wrap:wrap;';
-  SHIP_STATUSES.forEach(function(st) {
-    var qBtn = document.createElement('button');
-    var isActive = ship.status === st.id;
-    qBtn.style.cssText = 'padding:3px 8px;font-size:10px;font-family:Barlow Condensed,sans-serif;font-weight:' + (isActive ? '700' : '500') + ';letter-spacing:0.5px;cursor:pointer;border:1px solid ' + (isActive ? 'var(--red)' : 'var(--border)') + ';background:' + (isActive ? 'var(--red)' : 'transparent') + ';color:' + (isActive ? '#fff' : 'var(--muted)') + ';';
-    qBtn.textContent = st.icon + ' ' + st.label;
-    qBtn.onclick = function() { quickUpdateStatus(ship.id, st.id); };
-    quickRow.appendChild(qBtn);
-  });
-  card.appendChild(quickRow);
-
   // Notes
   if (ship.notes) {
     var notesDiv = document.createElement('div');
@@ -1935,34 +1922,6 @@ function openShipmentForm(ship) {
   trackInput.style.cssText = 'width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:monospace;font-size:14px;letter-spacing:0.5px;outline:none;margin-bottom:12px;box-sizing:border-box;';
   modal.appendChild(trackInput);
 
-  // Status
-  var statLabel = document.createElement('label');
-  statLabel.style.cssText = 'display:block;font-family:Barlow Condensed,sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;';
-  statLabel.textContent = 'Status';
-  modal.appendChild(statLabel);
-  var statRow = document.createElement('div');
-  statRow.style.cssText = 'display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;';
-  SHIP_STATUSES.forEach(function(st) {
-    var btn = document.createElement('button');
-    var sel = (ship ? ship.status : 'label_created') === st.id;
-    btn.className = 'ship-status-btn';
-    btn.setAttribute('data-status', st.id);
-    btn.style.cssText = 'padding:6px 12px;font-family:Barlow Condensed,sans-serif;font-size:11px;font-weight:600;letter-spacing:1px;cursor:pointer;border:2px solid ' + (sel ? 'var(--red)' : 'var(--border)') + ';background:' + (sel ? 'rgba(192,57,43,0.12)' : 'var(--surface)') + ';color:' + (sel ? 'var(--text)' : 'var(--muted)') + ';';
-    btn.textContent = st.icon + ' ' + st.label;
-    btn.onclick = function() {
-      document.querySelectorAll('.ship-status-btn').forEach(function(b) {
-        b.style.borderColor = 'var(--border)';
-        b.style.background = 'var(--surface)';
-        b.style.color = 'var(--muted)';
-      });
-      btn.style.borderColor = 'var(--red)';
-      btn.style.background = 'rgba(192,57,43,0.12)';
-      btn.style.color = 'var(--text)';
-    };
-    statRow.appendChild(btn);
-  });
-  modal.appendChild(statRow);
-
   // Notes
   var noteLabel = document.createElement('label');
   noteLabel.style.cssText = 'display:block;font-family:Barlow Condensed,sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;';
@@ -2027,13 +1986,6 @@ async function submitShipmentForm(overlay) {
     if (b.style.color === 'var(--text)') carrier = b.getAttribute('data-carrier');
   });
 
-  // Get selected status
-  var status = 'label_created';
-  var statBtns = document.querySelectorAll('.ship-status-btn');
-  statBtns.forEach(function(b) {
-    if (b.style.borderColor === 'var(--red)') status = b.getAttribute('data-status');
-  });
-
   if (!description) { showToast('Please enter a description.', 'error'); return; }
 
   var body = {
@@ -2041,7 +1993,6 @@ async function submitShipmentForm(overlay) {
     tracking_number: tracking,
     carrier: carrier,
     direction: direction,
-    status: status,
     notes: notes
   };
 
@@ -2066,7 +2017,16 @@ async function submitShipmentForm(overlay) {
     if (!res.ok) { showToast(data.error || 'Failed to save.', 'error'); return; }
 
     overlay.remove();
-    showToast(editingShipmentId ? 'Shipment updated!' : 'Shipment added!', 'success');
+    showToast(editingShipmentId ? 'Shipment updated!' : 'Shipment added! Fetching tracking...', 'success');
+
+    // Auto-track immediately if there's a tracking number
+    var shipId = editingShipmentId || (data.shipment ? data.shipment.id : null);
+    if (shipId && tracking) {
+      try {
+        await fetch(API + '/api/shipments/' + shipId + '/track');
+      } catch(e) {}
+    }
+
     loadShipments();
   } catch (err) {
     showToast('Failed to save shipment.', 'error');
