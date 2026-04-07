@@ -1361,7 +1361,10 @@ function renderAccountPage() {
       <div style="background:var(--card);border:1px solid var(--border);padding:1.5rem;margin-bottom:1.5rem;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;">
           <div class="section-label" style="margin-bottom:0;">Shipment Tracker</div>
-          <button class="btn-primary" onclick="openShipmentForm()" style="padding:6px 16px;font-size:11px;">+ Add Shipment</button>
+          <div style="display:flex;gap:6px;">
+            <button class="btn-outline" onclick="refreshAllTracking()" id="refresh-tracking-btn" style="padding:6px 16px;font-size:11px;">&#x1F504; Refresh Tracking</button>
+            <button class="btn-primary" onclick="openShipmentForm()" style="padding:6px 16px;font-size:11px;">+ Add Shipment</button>
+          </div>
         </div>
         <div id="shipment-filters" style="display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap;">
           <button class="btn-outline shipment-filter active" data-filter="active" onclick="setShipmentFilter(this)" style="padding:4px 12px;font-size:11px;">Active</button>
@@ -1725,6 +1728,63 @@ function buildShipmentCard(ship) {
     card.appendChild(notesDiv);
   }
 
+  // Tracking events
+  var events = [];
+  try { if (ship.tracking_details) events = JSON.parse(ship.tracking_details); } catch(e) {}
+  if (events && events.length) {
+    var eventsDiv = document.createElement('div');
+    eventsDiv.style.cssText = 'margin-top:10px;border-top:1px solid var(--border);padding-top:8px;';
+
+    var eventsToggle = document.createElement('button');
+    eventsToggle.style.cssText = 'background:none;border:none;color:var(--red-bright);font-family:Barlow Condensed,sans-serif;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;cursor:pointer;padding:0;';
+    eventsToggle.textContent = '\u25B6 Show Tracking History (' + events.length + ')';
+    var eventsList = document.createElement('div');
+    eventsList.style.cssText = 'display:none;margin-top:8px;';
+    events.forEach(function(evt) {
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.03);font-size:11px;';
+      var dateSpan = document.createElement('span');
+      dateSpan.style.cssText = 'color:#555;min-width:90px;flex-shrink:0;';
+      if (evt.date) {
+        var d = new Date(evt.date);
+        dateSpan.textContent = d.toLocaleDateString('en-US', {month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString('en-US', {hour:'numeric',minute:'2-digit'});
+      }
+      row.appendChild(dateSpan);
+      var descSpan = document.createElement('span');
+      descSpan.style.cssText = 'color:var(--text);flex:1;';
+      descSpan.textContent = evt.description;
+      row.appendChild(descSpan);
+      if (evt.city) {
+        var locSpan = document.createElement('span');
+        locSpan.style.cssText = 'color:#555;flex-shrink:0;';
+        locSpan.textContent = evt.city + (evt.state ? ', ' + evt.state : '');
+        row.appendChild(locSpan);
+      }
+      eventsList.appendChild(row);
+    });
+    eventsToggle.onclick = function() {
+      if (eventsList.style.display === 'none') {
+        eventsList.style.display = 'block';
+        eventsToggle.textContent = '\u25BC Hide Tracking History';
+      } else {
+        eventsList.style.display = 'none';
+        eventsToggle.textContent = '\u25B6 Show Tracking History (' + events.length + ')';
+      }
+    };
+    eventsDiv.appendChild(eventsToggle);
+    eventsDiv.appendChild(eventsList);
+    card.appendChild(eventsDiv);
+  }
+
+  // Last tracked timestamp
+  if (ship.last_tracked_at) {
+    var trackedDiv = document.createElement('div');
+    trackedDiv.style.cssText = 'margin-top:6px;font-size:10px;color:#444;';
+    var ltd = new Date(ship.last_tracked_at);
+    trackedDiv.textContent = 'Last tracked: ' + ltd.toLocaleDateString('en-US', {month:'short',day:'numeric'}) + ' at ' + ltd.toLocaleTimeString('en-US', {hour:'numeric',minute:'2-digit'});
+    card.appendChild(trackedDiv);
+  }
+
   return card;
 }
 
@@ -2011,6 +2071,32 @@ async function submitShipmentForm(overlay) {
   } catch (err) {
     showToast('Failed to save shipment.', 'error');
   }
+}
+
+async function refreshAllTracking() {
+  if (!currentUser) return;
+  var btn = document.getElementById('refresh-tracking-btn');
+  if (btn) { btn.textContent = '\u23F3 Refreshing...'; btn.disabled = true; }
+
+  try {
+    var res = await fetch(API + '/api/shipments/refresh/' + currentUser.id, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    var data = await res.json();
+    if (data.success) {
+      if (data.shipments) shipmentData = data.shipments;
+      else await loadShipments();
+      renderShipmentList();
+      showToast('Tracking updated! (' + data.updated + ' shipments refreshed)', 'success');
+    } else {
+      showToast(data.error || 'Failed to refresh tracking.', 'error');
+    }
+  } catch (err) {
+    showToast('Failed to refresh tracking.', 'error');
+  }
+
+  if (btn) { btn.textContent = '\uD83D\uDD04 Refresh Tracking'; btn.disabled = false; }
 }
 
 // ─────────────────────────────────────────

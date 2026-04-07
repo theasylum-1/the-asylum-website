@@ -1525,6 +1525,157 @@ app.delete('/api/shipments/:id', async (req, res) => {
 });
 
 // ─────────────────────────────────────────
+// SHIPENGINE — CARRIER CODE MAPPING
+// ─────────────────────────────────────────
+const SHIPENGINE_CARRIER_MAP = {
+  usps: 'stamps_com',
+  ups: 'ups',
+  fedex: 'fedex',
+  dhl: 'dhl_express',
+  amazon: 'amazon_shipping',
+  ontrac: 'ontrac',
+};
+
+// ─────────────────────────────────────────
+// SHIPENGINE — TRACK SINGLE SHIPMENT
+// ─────────────────────────────────────────
+app.get('/api/shipments/:id/track', async (req, res) => {
+  if (!process.env.SHIPENGINE_API_KEY) return res.status(500).json({ error: 'ShipEngine not configured.' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+
+    // Get shipment from DB
+    const { data: shipment, error: fetchErr } = await db.from('shipments').select('*').eq('id', req.params.id).single();
+    if (fetchErr || !shipment) return res.status(404).json({ error: 'Shipment not found.' });
+    if (!shipment.tracking_number) return res.status(400).json({ error: 'No tracking number.' });
+
+    const carrierCode = SHIPENGINE_CARRIER_MAP[shipment.carrier];
+    if (!carrierCode) return res.status(400).json({ error: 'Carrier not supported for auto-tracking.' });
+
+    // Call ShipEngine tracking API
+    const trackRes = await fetch(
+      `https://api.shipengine.com/v1/tracking?carrier_code=${carrierCode}&tracking_number=${shipment.tracking_number}`,
+      { headers: { 'API-Key': process.env.SHIPENGINE_API_KEY, 'Content-Type': 'application/json' } }
+    );
+    const trackData = await trackRes.json();
+
+    if (trackData.errors && trackData.errors.length) {
+      return res.status(400).json({ error: trackData.errors[0].message || 'Tracking lookup failed.' });
+    }
+
+    // Map ShipEngine status to our status codes
+    let newStatus = shipment.status;
+    const seStatus = (trackData.status_code || '').toUpperCase();
+    if (seStatus === 'AC' || seStatus === 'IT') newStatus = 'in_transit';
+    else if (seStatus === 'OT') newStatus = 'out_for_delivery';
+    else if (seStatus === 'DE') newStatus = 'delivered';
+    else if (seStatus === 'EX' || seStatus === 'UN' || seStatus === 'AT') newStatus = 'exception';
+    else if (seStatus === 'NY') newStatus = 'label_created';
+
+    // Build tracking events summary
+    const events = (trackData.events || []).slice(0, 10).map(e => ({
+      date: e.occurred_at || e.carrier_occurred_at || null,
+      description: e.description || '',
+      city: e.city_locality || '',
+      state: e.state_province || '',
+    }));
+
+    // Update shipment in DB
+    const { data: updated, error: updateErr } = await db.from('shipments')
+      .update({
+        status: newStatus,
+        tracking_details: JSON.stringify(events),
+        last_tracked_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (updateErr) return res.status(500).json({ error: updateErr.message });
+
+    res.json({ success: true, shipment: updated, tracking: { status_code: seStatus, events } });
+  } catch (err) {
+    console.error('ShipEngine tracking error:', err);
+    res.status(500).json({ error: 'Failed to fetch tracking.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// SHIPENGINE — REFRESH ALL ACTIVE SHIPMENTS FOR USER
+// ─────────────────────────────────────────
+app.post('/api/shipments/refresh/:user_id', async (req, res) => {
+  if (!process.env.SHIPENGINE_API_KEY) return res.status(500).json({ error: 'ShipEngine not configured.' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+
+    // Get all active shipments with tracking numbers
+    const { data: shipments, error } = await db.from('shipments')
+      .select('*')
+      .eq('user_id', req.params.user_id)
+      .neq('status', 'delivered')
+      .not('tracking_number', 'is', null);
+
+    if (error) return res.status(500).json({ error: error.message });
+    if (!shipments || !shipments.length) return res.json({ success: true, updated: 0 });
+
+    let updatedCount = 0;
+    for (const shipment of shipments) {
+      const carrierCode = SHIPENGINE_CARRIER_MAP[shipment.carrier];
+      if (!carrierCode || !shipment.tracking_number) continue;
+
+      try {
+        const trackRes = await fetch(
+          `https://api.shipengine.com/v1/tracking?carrier_code=${carrierCode}&tracking_number=${shipment.tracking_number}`,
+          { headers: { 'API-Key': process.env.SHIPENGINE_API_KEY, 'Content-Type': 'application/json' } }
+        );
+        const trackData = await trackRes.json();
+        if (trackData.errors && trackData.errors.length) continue;
+
+        let newStatus = shipment.status;
+        const seStatus = (trackData.status_code || '').toUpperCase();
+        if (seStatus === 'AC' || seStatus === 'IT') newStatus = 'in_transit';
+        else if (seStatus === 'OT') newStatus = 'out_for_delivery';
+        else if (seStatus === 'DE') newStatus = 'delivered';
+        else if (seStatus === 'EX' || seStatus === 'UN' || seStatus === 'AT') newStatus = 'exception';
+        else if (seStatus === 'NY') newStatus = 'label_created';
+
+        const events = (trackData.events || []).slice(0, 10).map(e => ({
+          date: e.occurred_at || e.carrier_occurred_at || null,
+          description: e.description || '',
+          city: e.city_locality || '',
+          state: e.state_province || '',
+        }));
+
+        await db.from('shipments').update({
+          status: newStatus,
+          tracking_details: JSON.stringify(events),
+          last_tracked_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }).eq('id', shipment.id);
+
+        updatedCount++;
+      } catch (innerErr) {
+        console.error('Track error for shipment', shipment.id, innerErr.message);
+      }
+    }
+
+    // Re-fetch updated shipments
+    const { data: refreshed } = await db.from('shipments')
+      .select('*')
+      .eq('user_id', req.params.user_id)
+      .order('updated_at', { ascending: false });
+
+    res.json({ success: true, updated: updatedCount, shipments: refreshed || [] });
+  } catch (err) {
+    console.error('Refresh tracking error:', err);
+    res.status(500).json({ error: 'Failed to refresh tracking.' });
+  }
+});
+
+// ─────────────────────────────────────────
 // START SERVER
 // ─────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
