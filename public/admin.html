@@ -83,6 +83,17 @@
   .toast.error{background:#2a0a0a;border:1px solid var(--red-bright);color:var(--red-bright);}
   .toast.info{background:#1a1a2a;border:1px solid var(--blue);color:var(--blue);}
   .actions-col{display:flex;gap:6px;flex-wrap:wrap;}
+  /* Customer dropdown search */
+  .customer-select-wrap{position:relative;}
+  .customer-search-input{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:sans-serif;font-size:14px;outline:none;}
+  .customer-search-input:focus{border-color:var(--red);}
+  .customer-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-top:none;max-height:200px;overflow-y:auto;z-index:50;display:none;}
+  .customer-dropdown.open{display:block;}
+  .customer-option{padding:8px 14px;font-size:13px;cursor:pointer;color:var(--text);}
+  .customer-option:hover{background:var(--surface);}
+  .customer-option .opt-name{font-weight:600;}
+  .customer-option .opt-email{font-size:11px;color:var(--muted);margin-top:1px;}
+  .customer-selected-badge{margin-top:6px;font-size:12px;color:var(--green);display:none;}
 </style>
 </head>
 <body>
@@ -250,6 +261,7 @@
       <div class="stat"><div class="stat-num red" id="ps-complete">0</div><div class="stat-label">Complete</div></div>
     </div>
 
+    <!-- ADD SUBMISSION FORM -->
     <div class="card">
       <div class="section-label">Add New Submission</div>
       <div class="form-grid three">
@@ -259,13 +271,24 @@
       </div>
       <div class="form-grid three">
         <div class="form-group">
-          <label>Customer Email</label>
-          <div style="display:flex;gap:8px;">
-            <input type="email" id="p-email" placeholder="customer@email.com" style="flex:1;">
-            <button class="btn-outline btn-sm" onclick="lookupCustomer()" style="white-space:nowrap;">Look Up</button>
+          <label>Customer</label>
+          <div class="customer-select-wrap" id="p-customer-wrap">
+            <input type="text" class="customer-search-input" id="p-customer-search" placeholder="Search by name or email..." autocomplete="off" oninput="filterCustomerDropdown('p')" onfocus="openCustomerDropdown('p')" onblur="delayCloseCustomerDropdown('p')">
+            <div class="customer-dropdown" id="p-customer-dropdown"></div>
           </div>
-          <div id="p-lookup-result" style="font-size:12px;margin-top:6px;color:var(--muted);"></div>
+          <div class="customer-selected-badge" id="p-customer-badge"></div>
           <input type="hidden" id="p-user-id">
+          <input type="hidden" id="p-customer-email">
+        </div>
+        <div class="form-group"><label>Service Level</label>
+          <select id="p-service-level">
+            <option value="">— Select Level —</option>
+            <option value="economy">Economy</option>
+            <option value="regular">Regular</option>
+            <option value="express">Express</option>
+            <option value="walkthrough">Walkthrough</option>
+            <option value="super_express">Super Express</option>
+          </select>
         </div>
         <div class="form-group"><label>Status</label>
           <select id="p-status">
@@ -283,7 +306,10 @@
             <option value="complete">Complete</option>
           </select>
         </div>
+      </div>
+      <div class="form-grid two">
         <div class="form-group"><label>Grade</label><input type="text" id="p-grade" placeholder="e.g. PSA 10"></div>
+        <div class="form-group"><label>Notes (internal)</label><input type="text" id="p-notes" placeholder="Optional internal notes"></div>
       </div>
       <button class="btn-primary" onclick="addPSA()">+ Add Submission</button>
     </div>
@@ -291,7 +317,7 @@
     <div class="card">
       <div class="section-label">All Submissions</div>
       <div class="search-row">
-        <input type="text" id="psa-search" placeholder="Search by card, ref, or notes..." oninput="filterPSA()">
+        <input type="text" id="psa-search" placeholder="Search by card, ref, customer, or notes..." oninput="filterPSA()">
         <button class="btn-outline btn-sm" onclick="loadPSA()">Refresh</button>
       </div>
       <div class="filter-row">
@@ -305,7 +331,7 @@
     </div>
   </div>
 
-</div>
+</div><!-- end dashboard -->
 
 
 <!-- SLOTS MODAL -->
@@ -317,7 +343,7 @@
   </div>
 </div>
 
-<!-- EDIT MODALS -->
+<!-- EDIT BREAK MODAL -->
 <div class="edit-modal-overlay" id="edit-break-modal">
   <div class="edit-modal">
     <button class="modal-close-btn" onclick="closeEditModal('break')">&#215;</button>
@@ -349,6 +375,7 @@
   </div>
 </div>
 
+<!-- EDIT SHOP MODAL -->
 <div class="edit-modal-overlay" id="edit-shop-modal">
   <div class="edit-modal">
     <button class="modal-close-btn" onclick="closeEditModal('shop')">&#215;</button>
@@ -387,31 +414,182 @@
   </div>
 </div>
 
-    <!-- COUPONS TAB -->
-    <div id="tab-coupons" class="tab-content">
-      <div class="admin-card">
-        <h3>Create Coupon Code</h3>
-        <div class="form-grid three">
-          <div class="form-group"><label>Code</label><input type="text" id="c-code" placeholder="e.g. SAVE20" oninput="this.value=this.value.toUpperCase()"></div>
-          <div class="form-group"><label>Type</label><select id="c-type"><option value="percent">Percent Off (%)</option><option value="fixed">Fixed Amount ($)</option></select></div>
-          <div class="form-group"><label>Value</label><input type="number" id="c-value" placeholder="e.g. 10" min="0" step="0.01"></div>
-        </div>
-        <div class="form-grid two">
-          <div class="form-group"><label>Usage Limit (blank = unlimited)</label><input type="number" id="c-limit" placeholder="e.g. 100"></div>
-          <div class="form-group"><label>Expiry Date (optional)</label><input type="date" id="c-expires"></div>
-        </div>
-        <button class="btn-primary" onclick="addCoupon()">+ Create Coupon</button>
-      </div>
-      <div class="admin-card">
-        <h3>All Coupons</h3>
-        <div id="coupons-list"><p style="color:var(--muted);">Loading...</p></div>
+<!-- EDIT PSA MODAL -->
+<div class="edit-modal-overlay" id="edit-psa-modal">
+  <div class="edit-modal" style="max-width:620px;">
+    <button class="modal-close-btn" onclick="closeEditModal('psa')">&#215;</button>
+    <h3>Edit Submission</h3>
+    <input type="hidden" id="edit-psa-ref">
+    <div class="form-grid two">
+      <div class="form-group"><label>Card Name</label><input type="text" id="edit-p-card" placeholder="e.g. Charizard Base Set Holo"></div>
+      <div class="form-group"><label>Submission Ref / ID</label><input type="text" id="edit-p-ref" placeholder="e.g. PSA-2501"></div>
+    </div>
+    <div class="form-grid two">
+      <div class="form-group"><label>Date Submitted</label><input type="date" id="edit-p-date"></div>
+      <div class="form-group"><label>Service Level</label>
+        <select id="edit-p-service-level">
+          <option value="">— Select Level —</option>
+          <option value="economy">Economy</option>
+          <option value="regular">Regular</option>
+          <option value="express">Express</option>
+          <option value="walkthrough">Walkthrough</option>
+          <option value="super_express">Super Express</option>
+        </select>
       </div>
     </div>
+    <div class="form-group" style="margin-bottom:1rem;">
+      <label>Customer</label>
+      <div class="customer-select-wrap">
+        <input type="text" class="customer-search-input" id="edit-p-customer-search" placeholder="Search by name or email..." autocomplete="off" oninput="filterCustomerDropdown('edit-p')" onfocus="openCustomerDropdown('edit-p')" onblur="delayCloseCustomerDropdown('edit-p')">
+        <div class="customer-dropdown" id="edit-p-customer-dropdown"></div>
+      </div>
+      <div class="customer-selected-badge" id="edit-p-customer-badge"></div>
+      <input type="hidden" id="edit-p-user-id">
+      <input type="hidden" id="edit-p-customer-email">
+    </div>
+    <div class="form-grid two">
+      <div class="form-group"><label>Status</label>
+        <select id="edit-p-status">
+          <option value="order_arrived">Order Arrived</option>
+          <option value="card_prep">Card Prep</option>
+          <option value="shipped_to_psa">Shipped to PSA</option>
+          <option value="arrived_to_psa">Order Arrived to PSA</option>
+          <option value="order_prep">Order Prep</option>
+          <option value="research_id">Research & ID</option>
+          <option value="grading">Grading</option>
+          <option value="assembly">Assembly</option>
+          <option value="qa_checks">QA Checks</option>
+          <option value="grades_ready">Grades Ready</option>
+          <option value="shipped_back">Shipped Back</option>
+          <option value="complete">Complete</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Grade</label><input type="text" id="edit-p-grade" placeholder="e.g. PSA 10"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:1.5rem;">
+      <label>Notes (internal)</label>
+      <textarea id="edit-p-notes" rows="3" placeholder="Optional internal notes" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:sans-serif;font-size:14px;outline:none;resize:vertical;"></textarea>
+    </div>
+    <button class="btn-primary" style="width:100%;" onclick="savePSAEdit()">Save Changes</button>
+  </div>
+</div>
+
+<!-- COUPONS TAB -->
+<div id="tab-coupons" class="tab-content">
+  <div class="card">
+    <div class="section-label">Create Coupon Code</div>
+    <div class="form-grid three">
+      <div class="form-group"><label>Code</label><input type="text" id="c-code" placeholder="e.g. SAVE20" oninput="this.value=this.value.toUpperCase()"></div>
+      <div class="form-group"><label>Type</label><select id="c-type"><option value="percent">Percent Off (%)</option><option value="fixed">Fixed Amount ($)</option></select></div>
+      <div class="form-group"><label>Value</label><input type="number" id="c-value" placeholder="e.g. 10" min="0" step="0.01"></div>
+    </div>
+    <div class="form-grid two">
+      <div class="form-group"><label>Usage Limit (blank = unlimited)</label><input type="number" id="c-limit" placeholder="e.g. 100"></div>
+      <div class="form-group"><label>Expiry Date (optional)</label><input type="date" id="c-expires"></div>
+    </div>
+    <button class="btn-primary" onclick="addCoupon()">+ Create Coupon</button>
+  </div>
+  <div class="card">
+    <div class="section-label">All Coupons</div>
+    <div id="coupons-list"><p style="color:var(--muted);">Loading...</p></div>
+  </div>
+</div>
 
 <script>
 var ADMIN_KEY = '';
-var allBreaks = [], allShop = [], allPSA = [];
+var allBreaks = [], allShop = [], allPSA = [], allCustomers = [];
 var breakFilter = 'all', shopFilter = 'all', psaFilter = 'all';
+
+// ── CUSTOMER DROPDOWN ──
+async function loadCustomers() {
+  try {
+    var res = await fetch('/api/admin/users?admin_key=' + encodeURIComponent(ADMIN_KEY));
+    if (!res.ok) return;
+    var data = await res.json();
+    allCustomers = data || [];
+  } catch(e) { allCustomers = []; }
+}
+
+function buildCustomerDropdownHTML(prefix, query) {
+  var dropdown = document.getElementById(prefix + '-customer-dropdown');
+  if (!dropdown) return;
+  var list = allCustomers;
+  if (query) {
+    var q = query.toLowerCase();
+    list = allCustomers.filter(function(c) {
+      return (c.name && c.name.toLowerCase().includes(q)) || (c.email && c.email.toLowerCase().includes(q));
+    });
+  }
+  dropdown.innerHTML = '';
+  if (!list.length) {
+    var none = document.createElement('div');
+    none.className = 'customer-option';
+    none.style.color = 'var(--muted)';
+    none.textContent = 'No customers found';
+    dropdown.appendChild(none);
+    return;
+  }
+  list.slice(0, 30).forEach(function(c) {
+    var div = document.createElement('div');
+    div.className = 'customer-option';
+    var nameEl = document.createElement('div');
+    nameEl.className = 'opt-name';
+    nameEl.textContent = c.name || '(no name)';
+    var emailEl = document.createElement('div');
+    emailEl.className = 'opt-email';
+    emailEl.textContent = c.email || '';
+    div.appendChild(nameEl);
+    div.appendChild(emailEl);
+    div.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      selectCustomer(prefix, c);
+    });
+    dropdown.appendChild(div);
+  });
+}
+
+function openCustomerDropdown(prefix) {
+  buildCustomerDropdownHTML(prefix, document.getElementById(prefix + '-customer-search').value);
+  document.getElementById(prefix + '-customer-dropdown').classList.add('open');
+}
+
+function filterCustomerDropdown(prefix) {
+  var q = document.getElementById(prefix + '-customer-search').value;
+  buildCustomerDropdownHTML(prefix, q);
+  document.getElementById(prefix + '-customer-dropdown').classList.add('open');
+  // Clear selection if user is typing
+  document.getElementById(prefix + '-user-id').value = '';
+  document.getElementById(prefix + '-customer-email').value = '';
+  var badge = document.getElementById(prefix + '-customer-badge');
+  if (badge) { badge.style.display = 'none'; badge.textContent = ''; }
+}
+
+function selectCustomer(prefix, c) {
+  document.getElementById(prefix + '-customer-search').value = (c.name || '') + (c.email ? ' — ' + c.email : '');
+  document.getElementById(prefix + '-user-id').value = c.user_id || c.id || '';
+  document.getElementById(prefix + '-customer-email').value = c.email || '';
+  document.getElementById(prefix + '-customer-dropdown').classList.remove('open');
+  var badge = document.getElementById(prefix + '-customer-badge');
+  if (badge) {
+    badge.textContent = 'Selected: ' + (c.name || c.email);
+    badge.style.display = 'block';
+  }
+}
+
+function delayCloseCustomerDropdown(prefix) {
+  setTimeout(function() {
+    var dd = document.getElementById(prefix + '-customer-dropdown');
+    if (dd) dd.classList.remove('open');
+  }, 200);
+}
+
+function clearCustomerSelection(prefix) {
+  document.getElementById(prefix + '-customer-search').value = '';
+  document.getElementById(prefix + '-user-id').value = '';
+  document.getElementById(prefix + '-customer-email').value = '';
+  var badge = document.getElementById(prefix + '-customer-badge');
+  if (badge) { badge.style.display = 'none'; badge.textContent = ''; }
+}
 
 // ── BREAK TYPE HELPERS ──
 var ENERGIES = ['Fire','Water','Grass','Lightning','Psychic','Fighting','Darkness','Metal'];
@@ -446,18 +624,10 @@ function renderTeamPriceGrid() {
   var sport = document.getElementById('b-sport') ? document.getElementById('b-sport').value : '';
   var container = document.getElementById('team-price-grid');
   if (!container) return;
-
-  if (type !== 'pick_team') {
-    container.style.display = 'none';
-    container.innerHTML = '';
-    return;
-  }
-
+  if (type !== 'pick_team') { container.style.display = 'none'; container.innerHTML = ''; return; }
   var teams = sport==='baseball'?MLB_TEAMS:sport==='football'?NFL_TEAMS:NBA_TEAMS;
   container.style.display = 'block';
-
   var basePrice = parseFloat(document.getElementById('b-price').value) || 0;
-
   var html = '<div class="section-label" style="margin-top:1rem;">Team Prices</div>';
   html += '<p style="font-size:12px;color:var(--muted);margin-bottom:1rem;letter-spacing:1px;">Set a price for each team. Leave at 0 to use the base price above.</p>';
   html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;">';
@@ -478,18 +648,13 @@ async function viewSlots(breakId, breakType, sport) {
   window.currentBreakSport = sport;
   document.getElementById('slots-modal').classList.add('open');
   document.getElementById('slots-modal-content').innerHTML = '<p style="color:var(--muted);padding:1rem;">Loading slots...</p>';
-  
   var b = allBreaks.find(function(x){return x.id===breakId;});
   var title = b ? b.name : 'Break Slots';
   document.getElementById('slots-modal-title').textContent = title;
-
   try {
     var res = await fetch('/api/breaks/' + breakId + '/slots');
     var slots = await res.json();
-    
-    var statusColors = {true:'var(--red-bright)',false:'var(--green)'};
     var html = '<div style="margin-bottom:1rem;display:flex;gap:8px;flex-wrap:wrap;">';
-    
     var available = slots.filter(function(s){return !s.is_taken;}).length;
     html += '<span style="font-family:sans-serif;font-size:12px;letter-spacing:2px;color:var(--muted);">' + available + ' of ' + slots.length + ' slots available</span>';
     html += '</div>';
@@ -497,7 +662,6 @@ async function viewSlots(breakId, breakType, sport) {
     if (breakType === 'random_team' && soldOut) {
       html += '<button onclick="assignRandomTeams(\'' + breakId + '\',\'' + (sport||'') + '\')" style="background:#c0392b;color:#fff;border:none;padding:6px 16px;font-family:sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;">Assign Teams Now</button>';
     }
-    
     if (!slots.length) {
       html += '<p style="color:var(--muted);font-size:13px;">No slots set up yet.</p>';
     } else {
@@ -508,13 +672,12 @@ async function viewSlots(breakId, breakType, sport) {
         var borderColor = slotStatus==='taken'?'#4a1a1a':slotStatus==='payment_sent'?'#4a3500':slotStatus==='pending'?'#2a2a4a':'#2d4a2d';
         var textColor = slotStatus==='taken'?'var(--red-bright)':slotStatus==='payment_sent'?'#d4a843':slotStatus==='pending'?'#5b9cf6':'var(--green)';
         var statusLabel = slotStatus==='taken'?'TAKEN':slotStatus==='payment_sent'?'PAYMENT SENT':slotStatus==='pending'?'PENDING':'OPEN';
-
         html += '<div style="background:' + bgColor + ';border:1px solid ' + borderColor + ';padding:0.75rem;text-align:center;">';
         html += '<div style="font-family:sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;color:' + textColor + ';">' + s.slot_name + '</div>';
         html += '<div style="font-size:10px;color:' + textColor + ';opacity:0.7;letter-spacing:1px;margin-top:2px;">' + statusLabel + '</div>';
         if (s.buyer_name || s.pending_buyer) html += '<div style="font-size:11px;color:var(--muted);margin-top:4px;">' + (s.buyer_name||s.pending_buyer) + '</div>';
         if (slotStatus === 'payment_sent') {
-          html += '<button onclick="confirmSlotPayment(\'' + breakId + '\',\'' + s.id + '\')" style="margin-top:6px;background:#27ae60;border:none;color:#fff;padding:3px 8px;font-family:sans-serif;font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;width:100%;">✓ Confirm Paid</button>';
+          html += '<button onclick="confirmSlotPayment(\'' + breakId + '\',\'' + s.id + '\')" style="margin-top:6px;background:#27ae60;border:none;color:#fff;padding:3px 8px;font-family:sans-serif;font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;width:100%;">Confirm Paid</button>';
           html += '<button onclick="resetSlot(\'' + breakId + '\',\'' + s.id + '\')" style="margin-top:3px;background:none;border:1px solid #4a1a1a;color:var(--red-bright);padding:3px 8px;font-family:sans-serif;font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;width:100%;">Release</button>';
         } else if (slotStatus === 'pending') {
           html += '<button onclick="resetSlot(\'' + breakId + '\',\'' + s.id + '\')" style="margin-top:6px;background:none;border:1px solid #4a1a1a;color:var(--red-bright);padding:3px 8px;font-family:sans-serif;font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;width:100%;">Release</button>';
@@ -555,7 +718,6 @@ function getSlotsForBreak(breakType, sport, randomSpots) {
     return ENERGIES.map(function(e){ return {name:e, type:'energy', price:0}; });
   } else if (breakType === 'pick_team') {
     var teams = sport==='baseball'?MLB_TEAMS:sport==='football'?NFL_TEAMS:NBA_TEAMS;
-    // Get prices from input fields if they exist
     return teams.map(function(t){
       var input = document.getElementById('team-price-' + t.replace(/\s+/g,'-').replace(/[^a-zA-Z0-9-]/g,''));
       var price = input ? parseFloat(input.value) || 0 : 0;
@@ -575,74 +737,56 @@ async function loadCoupons() {
     var data = await res.json();
     var container = document.getElementById('coupons-list');
     if (!data.length) { container.innerHTML = '<p style="color:var(--muted);font-size:13px;">No coupons yet.</p>'; return; }
-
     var table = document.createElement('table');
     table.style.cssText = 'width:100%;border-collapse:collapse;';
     table.innerHTML = '<thead><tr>' +
       ['Code','Discount','Used','Expires','Status','Actions'].map(function(h){
         return '<th style="text-align:left;padding:8px;font-family:sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);">' + h + '</th>';
       }).join('') + '</tr></thead>';
-
     var tbody = document.createElement('tbody');
     data.forEach(function(c) {
       var discount = c.type === 'percent' ? c.value + '% off' : '$' + c.value + ' off';
       var expires = c.expires_at ? new Date(c.expires_at).toLocaleDateString() : 'Never';
       var usage = c.usage_count + (c.usage_limit ? '/' + c.usage_limit : '');
-
       var tr = document.createElement('tr');
-      
       var tdCode = document.createElement('td');
       tdCode.style.cssText = 'padding:10px 8px;font-weight:700;font-size:14px;border-bottom:1px solid var(--border);';
       tdCode.textContent = c.code;
-
       var tdDiscount = document.createElement('td');
       tdDiscount.style.cssText = 'padding:10px 8px;border-bottom:1px solid var(--border);';
       tdDiscount.textContent = discount;
-
       var tdUsage = document.createElement('td');
       tdUsage.style.cssText = 'padding:10px 8px;color:var(--muted);font-size:13px;border-bottom:1px solid var(--border);';
       tdUsage.textContent = usage;
-
       var tdExpires = document.createElement('td');
       tdExpires.style.cssText = 'padding:10px 8px;color:var(--muted);font-size:13px;border-bottom:1px solid var(--border);';
       tdExpires.textContent = expires;
-
       var tdStatus = document.createElement('td');
       tdStatus.style.cssText = 'padding:10px 8px;border-bottom:1px solid var(--border);';
       var badge = document.createElement('span');
       badge.style.cssText = 'padding:2px 8px;font-size:11px;letter-spacing:1px;background:' + (c.is_active?'#1a3a1a':'#2a1a1a') + ';color:' + (c.is_active?'#5bd95b':'#d95b5b') + ';';
       badge.textContent = c.is_active ? 'ACTIVE' : 'INACTIVE';
       tdStatus.appendChild(badge);
-
       var tdActions = document.createElement('td');
       tdActions.style.cssText = 'padding:10px 8px;border-bottom:1px solid var(--border);';
       var btnWrap = document.createElement('div');
       btnWrap.style.cssText = 'display:flex;gap:6px;';
-
       var toggleBtn = document.createElement('button');
       toggleBtn.className = 'btn-outline btn-sm';
       toggleBtn.textContent = c.is_active ? 'Disable' : 'Enable';
-      (function(id, active) {
-        toggleBtn.onclick = function() { toggleCoupon(id, !active); };
-      })(c.id, c.is_active);
-
+      (function(id, active) { toggleBtn.onclick = function() { toggleCoupon(id, !active); }; })(c.id, c.is_active);
       var deleteBtn = document.createElement('button');
       deleteBtn.className = 'btn-outline btn-sm';
       deleteBtn.style.cssText = 'color:var(--red-bright);border-color:var(--red-bright);';
       deleteBtn.textContent = 'Delete';
-      (function(id) {
-        deleteBtn.onclick = function() { deleteCoupon(id); };
-      })(c.id);
-
+      (function(id) { deleteBtn.onclick = function() { deleteCoupon(id); }; })(c.id);
       btnWrap.appendChild(toggleBtn);
       btnWrap.appendChild(deleteBtn);
       tdActions.appendChild(btnWrap);
-
       tr.appendChild(tdCode); tr.appendChild(tdDiscount); tr.appendChild(tdUsage);
       tr.appendChild(tdExpires); tr.appendChild(tdStatus); tr.appendChild(tdActions);
       tbody.appendChild(tr);
     });
-
     table.appendChild(tbody);
     container.innerHTML = '';
     container.appendChild(table);
@@ -688,7 +832,7 @@ function unlock() {
   var key = document.getElementById('admin-key-input').value.trim();
   if (!key) { showToast('Enter your admin key.', 'error'); return; }
   ADMIN_KEY = key;
-  Promise.all([loadBreaks(), loadShop(), loadPSA()]).then(function() {
+  Promise.all([loadBreaks(), loadShop(), loadPSA(), loadCustomers()]).then(function() {
     if (ADMIN_KEY) {
       document.getElementById('lock-screen').style.display = 'none';
       document.getElementById('dashboard').classList.add('visible');
@@ -711,7 +855,7 @@ function switchTab(name, el) {
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'breaks') loadBreaks();
   if (name === 'shop') loadShop();
-  if (name === 'psa') loadPSA();
+  if (name === 'psa') { loadPSA(); if (!allCustomers.length) loadCustomers(); }
   if (name === 'coupons') loadCoupons();
 }
 
@@ -821,13 +965,10 @@ async function addBreak() {
   var sport = document.getElementById('b-sport') ? document.getElementById('b-sport').value : null;
   var price = parseFloat(document.getElementById('b-price').value) || 0;
   var randomSpots = document.getElementById('b-spots').value;
-
   if (!name||!date) { showToast('Name and date required.', 'error'); return; }
   if (breakType !== 'pick_team' && !price) { showToast('Price is required.', 'error'); return; }
   if (breakType==='random_team' && !randomSpots) { showToast('Please enter number of spots for random break.', 'error'); return; }
   if (breakType==='pick_team') {
-    // For pick_team, check at least some teams have prices set
-    var sport = document.getElementById('b-sport') ? document.getElementById('b-sport').value : '';
     var teams = sport==='baseball'?MLB_TEAMS:sport==='football'?NFL_TEAMS:NBA_TEAMS;
     var hasPrices = teams.some(function(t) {
       var id = 'team-price-' + t.replace(/\s+/g,'-').replace(/[^a-zA-Z0-9-]/g,'');
@@ -836,24 +977,15 @@ async function addBreak() {
     });
     if (!hasPrices && !price) { showToast('Please set at least a base price or individual team prices.', 'error'); return; }
   }
-
   var slots = getSlotsForBreak(breakType, sport, randomSpots);
   var totalSpots = slots.length;
-
   showToast('Adding break...', 'info');
-
   try {
-    // Create the break with type and sport included
     var res = await fetch('/api/breaks', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({brand, name, break_date:date, price, total_spots:totalSpots, break_type:breakType, sport:sport||null, admin_key:ADMIN_KEY}) });
     var data = await res.json();
     if (!res.ok) { showToast(data.error||'Failed.', 'error'); return; }
-
     var breakId = data.break.id;
-
-    // Setup slots
-    var slotRes = await fetch('/api/breaks/' + breakId + '/slots/setup', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({slots, admin_key:ADMIN_KEY}) });
-    var slotData = await slotRes.json();
-
+    await fetch('/api/breaks/' + breakId + '/slots/setup', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({slots, admin_key:ADMIN_KEY}) });
     showToast('Break added with ' + totalSpots + ' slots!', 'success');
     ['b-name','b-date','b-price','b-spots'].forEach(function(id){document.getElementById(id).value='';});
     loadBreaks();
@@ -949,7 +1081,6 @@ function openShopEdit(id) {
   document.getElementById('edit-s-price').value = i.price;
   document.getElementById('edit-s-instock').value = i.in_stock ? 'true' : 'false';
   if (document.getElementById('edit-s-quantity')) document.getElementById('edit-s-quantity').value = i.quantity || 1;
-  // Show current image
   var currentImgDiv = document.getElementById('edit-image-current');
   if (currentImgDiv) {
     if (i.image_url) {
@@ -958,12 +1089,10 @@ function openShopEdit(id) {
       currentImgDiv.innerHTML = '<div style="font-size:11px;color:var(--muted);">No image currently set.</div>';
     }
   }
-  // Reset image preview and input
   var editPreview = document.getElementById('edit-s-image-preview');
   var editInput = document.getElementById('edit-s-image-input');
   if (editPreview) editPreview.style.display = 'none';
   if (editInput) editInput.value = '';
-
   document.getElementById('edit-shop-modal').classList.add('open');
 }
 
@@ -978,15 +1107,12 @@ async function saveShopEdit() {
     in_stock: document.getElementById('edit-s-instock').value === 'true',
     quantity: parseInt(document.getElementById('edit-s-quantity').value) || 1
   };
-
-  // Handle image upload if a new image was selected
   var imgInput = document.getElementById('edit-s-image-input');
   if (imgInput && imgInput.files[0]) {
     showToast('Uploading image...', 'info');
     var imageUrl = await uploadImage(imgInput.files[0]);
     if (imageUrl) body.image_url = imageUrl;
   }
-
   try {
     var res = await fetch('/api/shop/admin/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
     var data = await res.json();
@@ -1004,14 +1130,12 @@ async function addShopItem() {
   var condition = document.getElementById('s-condition').value.trim();
   var instock = document.getElementById('s-instock').value === 'true';
   if (!title || !price) { showToast('Title and price required.', 'error'); return; }
-
   var imageUrl = null;
   var imgInput = document.getElementById('s-image-input');
   if (imgInput.files[0]) {
     showToast('Uploading image...', 'info');
     imageUrl = await uploadImage(imgInput.files[0]);
   }
-
   try {
     var quantity = parseInt(document.getElementById('s-quantity').value) || 1;
     var res = await fetch('/api/shop/admin/add', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title, category, condition, price, image_url:imageUrl, in_stock:instock, quantity, admin_key:ADMIN_KEY}) });
@@ -1027,12 +1151,10 @@ async function addShopItem() {
 
 async function uploadImage(file) {
   return new Promise(function(resolve) {
-    // Compress image using canvas before uploading
     var reader = new FileReader();
     reader.onload = function(e) {
       var img = new Image();
       img.onload = async function() {
-        // Resize to max 800px on longest side
         var maxSize = 800;
         var w = img.width, h = img.height;
         if (w > maxSize || h > maxSize) {
@@ -1044,7 +1166,6 @@ async function uploadImage(file) {
         var ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, w, h);
         var compressed = canvas.toDataURL('image/jpeg', 0.75);
-        
         try {
           var res = await fetch('/api/shop/admin/upload-image', {
             method: 'POST',
@@ -1095,7 +1216,31 @@ function previewImage(input) {
   }
 }
 
+function previewEditImage(input) {
+  if (input.files[0]) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var img = document.getElementById('edit-s-image-preview');
+      img.src = e.target.result;
+      img.style.display = 'block';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
 // ── PSA ──
+var PSA_STATUSES = [
+  ['order_arrived','Order Arrived'],['card_prep','Card Prep'],['shipped_to_psa','Shipped to PSA'],
+  ['arrived_to_psa','Order Arrived to PSA'],['order_prep','Order Prep'],['research_id','Research & ID'],
+  ['grading','Grading'],['assembly','Assembly'],['qa_checks','QA Checks'],
+  ['grades_ready','Grades Ready'],['shipped_back','Shipped Back'],['complete','Complete']
+];
+
+var SERVICE_LEVEL_LABELS = {
+  economy: 'Economy', regular: 'Regular', express: 'Express',
+  walkthrough: 'Walkthrough', super_express: 'Super Express'
+};
+
 async function loadPSA() {
   try {
     var res = await fetch('/api/psa/admin/all?admin_key=' + encodeURIComponent(ADMIN_KEY));
@@ -1125,7 +1270,11 @@ function filterPSA() {
   var search = document.getElementById('psa-search').value.toLowerCase();
   var filtered = allPSA.filter(function(s) {
     var mf = psaFilter==='all' || s.status===psaFilter;
-    var ms = !search || s.card_name.toLowerCase().includes(search) || s.submission_ref.toLowerCase().includes(search) || (s.notes&&s.notes.toLowerCase().includes(search));
+    var ms = !search || s.card_name.toLowerCase().includes(search) ||
+      s.submission_ref.toLowerCase().includes(search) ||
+      (s.notes&&s.notes.toLowerCase().includes(search)) ||
+      (s.customer_name&&s.customer_name.toLowerCase().includes(search)) ||
+      (s.customer_email&&s.customer_email.toLowerCase().includes(search));
     return mf && ms;
   });
   renderPSATable(filtered);
@@ -1134,77 +1283,274 @@ function filterPSA() {
 function renderPSATable(data) {
   var wrap = document.getElementById('psa-table-wrap');
   if (!data.length) { wrap.innerHTML = '<p style="color:var(--muted);font-size:14px;padding:1rem 0;">No submissions found.</p>'; return; }
-  var statusColors = {received:'#4caf50',grading:'#5b9cf6',shipped:'#ff9800',complete:'#e74c3c'};
-  var statusBgs = {received:'#1a2a1a',grading:'#1a1a2a',shipped:'#2a1a0a',complete:'#2a0a0a'};
-  var statusBorders = {received:'#2d4a2d',grading:'#2d2d4a',shipped:'#4a2d0a',complete:'#4a1a1a'};
-  var html = '<table><thead><tr><th>Card</th><th>Ref</th><th>Submitted</th><th>Status</th><th>Grade</th><th>Actions</th></tr></thead><tbody>';
-  data.forEach(function(s) {
-    html += '<tr>';
-    html += '<td style="max-width:180px;">' + s.card_name + '</td>';
-    html += '<td><code style="color:var(--red-bright);font-size:12px;">' + s.submission_ref + '</code></td>';
-    html += '<td style="font-size:12px;">' + (s.submitted_date||'—') + '</td>';
-    html += '<td><select style="background:' + statusBgs[s.status] + ';border:1px solid ' + statusBorders[s.status] + ';color:' + statusColors[s.status] + ';padding:4px 8px;font-family:sans-serif;font-size:11px;outline:none;" onchange="updatePSAStatus(\'' + s.submission_ref + '\',this.value)">';
-    [["order_arrived","Order Arrived"],["card_prep","Card Prep"],["shipped_to_psa","Shipped to PSA"],["arrived_to_psa","Order Arrived to PSA"],["order_prep","Order Prep"],["research_id","Research & ID"],["grading","Grading"],["assembly","Assembly"],["qa_checks","QA Checks"],["grades_ready","Grades Ready"],["shipped_back","Shipped Back"],["complete","Complete"]].forEach(function(st){html+='<option value="'+st[0]+'"'+(s.status===st[0]?' selected':'')+'>'+st[1]+'</option>';});
-    html += '</select></td>';
-    html += '<td><input style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:4px 8px;font-family:sans-serif;font-size:12px;outline:none;width:70px;" type="text" value="' + (s.grade||'') + '" placeholder="—" onblur="updatePSAGrade(\'' + s.submission_ref + '\',this.value)"></td>';
-    html += '<td><button class="btn-danger btn-sm" onclick="deletePSA(\'' + s.submission_ref + '\')">Delete</button></td>';
-    html += '</tr>';
+
+  var statusColors = {
+    order_arrived:'#888',card_prep:'#5b9cf6',shipped_to_psa:'#5b9cf6',arrived_to_psa:'#5b9cf6',
+    order_prep:'#5b9cf6',research_id:'#5b9cf6',grading:'#5b9cf6',assembly:'#5b9cf6',
+    qa_checks:'#ff9800',grades_ready:'#4caf50',shipped_back:'#ff9800',complete:'#e74c3c'
+  };
+  var statusBgs = {
+    order_arrived:'#222',card_prep:'#1a1a2a',shipped_to_psa:'#1a1a2a',arrived_to_psa:'#1a1a2a',
+    order_prep:'#1a1a2a',research_id:'#1a1a2a',grading:'#1a1a2a',assembly:'#1a1a2a',
+    qa_checks:'#2a1a0a',grades_ready:'#1a2a1a',shipped_back:'#2a1a0a',complete:'#2a0a0a'
+  };
+  var statusBorders = {
+    order_arrived:'#333',card_prep:'#2d2d4a',shipped_to_psa:'#2d2d4a',arrived_to_psa:'#2d2d4a',
+    order_prep:'#2d2d4a',research_id:'#2d2d4a',grading:'#2d2d4a',assembly:'#2d2d4a',
+    qa_checks:'#4a2d0a',grades_ready:'#2d4a2d',shipped_back:'#4a2d0a',complete:'#4a1a1a'
+  };
+
+  var table = document.createElement('table');
+  var thead = document.createElement('thead');
+  var headerRow = document.createElement('tr');
+  ['Card','Ref','Customer','Service','Submitted','Status','Grade','Actions'].forEach(function(h) {
+    var th = document.createElement('th');
+    th.textContent = h;
+    headerRow.appendChild(th);
   });
-  html += '</tbody></table>';
-  wrap.innerHTML = html;
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  var tbody = document.createElement('tbody');
+  data.forEach(function(s) {
+    var tr = document.createElement('tr');
+
+    // Card name
+    var tdCard = document.createElement('td');
+    tdCard.style.cssText = 'max-width:160px;font-weight:500;';
+    tdCard.textContent = s.card_name;
+    tr.appendChild(tdCard);
+
+    // Ref
+    var tdRef = document.createElement('td');
+    var code = document.createElement('code');
+    code.style.cssText = 'color:var(--red-bright);font-size:12px;';
+    code.textContent = s.submission_ref;
+    tdRef.appendChild(code);
+    tr.appendChild(tdRef);
+
+    // Customer
+    var tdCustomer = document.createElement('td');
+    tdCustomer.style.cssText = 'font-size:12px;max-width:130px;';
+    if (s.customer_name || s.customer_email) {
+      var nameSpan = document.createElement('div');
+      nameSpan.style.cssText = 'color:var(--text);font-weight:500;';
+      nameSpan.textContent = s.customer_name || '';
+      var emailSpan = document.createElement('div');
+      emailSpan.style.cssText = 'color:var(--muted);font-size:11px;';
+      emailSpan.textContent = s.customer_email || '';
+      tdCustomer.appendChild(nameSpan);
+      tdCustomer.appendChild(emailSpan);
+    } else {
+      tdCustomer.style.color = 'var(--muted)';
+      tdCustomer.textContent = '—';
+    }
+    tr.appendChild(tdCustomer);
+
+    // Service level
+    var tdService = document.createElement('td');
+    tdService.style.cssText = 'font-size:12px;';
+    if (s.service_level) {
+      var svcBadge = document.createElement('span');
+      svcBadge.style.cssText = 'background:#1a1a2a;color:var(--blue);border:1px solid #2d2d4a;padding:2px 8px;font-size:10px;letter-spacing:1px;text-transform:uppercase;font-weight:700;';
+      svcBadge.textContent = SERVICE_LEVEL_LABELS[s.service_level] || s.service_level;
+      tdService.appendChild(svcBadge);
+    } else {
+      tdService.style.color = 'var(--muted)';
+      tdService.textContent = '—';
+    }
+    tr.appendChild(tdService);
+
+    // Date
+    var tdDate = document.createElement('td');
+    tdDate.style.cssText = 'font-size:12px;color:var(--muted);';
+    tdDate.textContent = s.submitted_date || '—';
+    tr.appendChild(tdDate);
+
+    // Status (inline change still supported)
+    var tdStatus = document.createElement('td');
+    var statusSel = document.createElement('select');
+    statusSel.style.cssText = 'background:' + (statusBgs[s.status]||'#1a1a1a') + ';border:1px solid ' + (statusBorders[s.status]||'#333') + ';color:' + (statusColors[s.status]||'var(--muted)') + ';padding:4px 8px;font-family:sans-serif;font-size:11px;outline:none;';
+    PSA_STATUSES.forEach(function(st) {
+      var opt = document.createElement('option');
+      opt.value = st[0];
+      opt.textContent = st[1];
+      if (s.status === st[0]) opt.selected = true;
+      statusSel.appendChild(opt);
+    });
+    (function(ref) {
+      statusSel.addEventListener('change', function() { updatePSAStatus(ref, this.value); });
+    })(s.submission_ref);
+    tdStatus.appendChild(statusSel);
+    tr.appendChild(tdStatus);
+
+    // Grade (inline edit still supported)
+    var tdGrade = document.createElement('td');
+    var gradeInput = document.createElement('input');
+    gradeInput.type = 'text';
+    gradeInput.value = s.grade || '';
+    gradeInput.placeholder = '—';
+    gradeInput.style.cssText = 'background:var(--surface);border:1px solid var(--border);color:var(--text);padding:4px 8px;font-family:sans-serif;font-size:12px;outline:none;width:70px;';
+    (function(ref) {
+      gradeInput.addEventListener('blur', function() { updatePSAGrade(ref, this.value); });
+    })(s.submission_ref);
+    tdGrade.appendChild(gradeInput);
+    tr.appendChild(tdGrade);
+
+    // Actions
+    var tdActions = document.createElement('td');
+    var actionsWrap = document.createElement('div');
+    actionsWrap.className = 'actions-col';
+
+    var editBtn = document.createElement('button');
+    editBtn.className = 'btn-outline btn-sm';
+    editBtn.textContent = 'Edit';
+    (function(ref) {
+      editBtn.onclick = function() { openPSAEdit(ref); };
+    })(s.submission_ref);
+
+    var delBtn = document.createElement('button');
+    delBtn.className = 'btn-danger btn-sm';
+    delBtn.textContent = 'Delete';
+    (function(ref) {
+      delBtn.onclick = function() { deletePSA(ref); };
+    })(s.submission_ref);
+
+    actionsWrap.appendChild(editBtn);
+    actionsWrap.appendChild(delBtn);
+    tdActions.appendChild(actionsWrap);
+    tr.appendChild(tdActions);
+
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  wrap.innerHTML = '';
+  wrap.appendChild(table);
 }
 
-async function lookupCustomer() {
-  var email = document.getElementById('p-email').value.trim();
-  if (!email) { showToast('Enter a customer email first.', 'error'); return; }
-  var result = document.getElementById('p-lookup-result');
-  result.textContent = 'Looking up...';
-  try {
-    var res = await fetch('/api/admin/user-by-email?email=' + encodeURIComponent(email) + '&admin_key=' + encodeURIComponent(ADMIN_KEY));
-    var data = await res.json();
-    if (!data.found) {
-      result.style.color = 'var(--orange)';
-      result.textContent = '⚠ No account found. Submission will not be linked.';
-      document.getElementById('p-user-id').value = '';
-    } else {
-      result.style.color = 'var(--green)';
-      result.textContent = '✓ Found: ' + (data.name || data.email);
-      document.getElementById('p-user-id').value = data.user_id;
+function openPSAEdit(ref) {
+  var s = allPSA.find(function(x){return x.submission_ref===ref;});
+  if (!s) return;
+
+  document.getElementById('edit-psa-ref').value = s.submission_ref;
+  document.getElementById('edit-p-card').value = s.card_name || '';
+  document.getElementById('edit-p-ref').value = s.submission_ref || '';
+  document.getElementById('edit-p-date').value = s.submitted_date || '';
+  document.getElementById('edit-p-service-level').value = s.service_level || '';
+  document.getElementById('edit-p-status').value = s.status || 'order_arrived';
+  document.getElementById('edit-p-grade').value = s.grade || '';
+  document.getElementById('edit-p-notes').value = s.notes || '';
+
+  // Pre-fill customer
+  clearCustomerSelection('edit-p');
+  if (s.customer_name || s.customer_email) {
+    var displayName = (s.customer_name || '') + (s.customer_email ? ' — ' + s.customer_email : '');
+    document.getElementById('edit-p-customer-search').value = displayName;
+    document.getElementById('edit-p-user-id').value = s.user_id || '';
+    document.getElementById('edit-p-customer-email').value = s.customer_email || '';
+    var badge = document.getElementById('edit-p-customer-badge');
+    if (badge) {
+      badge.textContent = 'Current: ' + (s.customer_name || s.customer_email);
+      badge.style.display = 'block';
     }
-  } catch(e) { result.textContent = 'Lookup failed.'; }
+  }
+
+  document.getElementById('edit-psa-modal').classList.add('open');
+}
+
+async function savePSAEdit() {
+  var originalRef = document.getElementById('edit-psa-ref').value;
+  var newRef = document.getElementById('edit-p-ref').value.trim();
+  var card = document.getElementById('edit-p-card').value.trim();
+  var date = document.getElementById('edit-p-date').value;
+  var serviceLevel = document.getElementById('edit-p-service-level').value;
+  var status = document.getElementById('edit-p-status').value;
+  var grade = document.getElementById('edit-p-grade').value.trim();
+  var notes = document.getElementById('edit-p-notes').value.trim();
+  var userId = document.getElementById('edit-p-user-id').value;
+  var email = document.getElementById('edit-p-customer-email').value;
+
+  if (!card || !newRef) { showToast('Card name and ref are required.', 'error'); return; }
+
+  var body = {
+    original_ref: originalRef,
+    submission_ref: newRef,
+    card_name: card,
+    submitted_date: date || null,
+    service_level: serviceLevel || null,
+    status: status,
+    grade: grade || null,
+    notes: notes || null,
+    user_id: userId || null,
+    customer_email: email || null,
+    admin_key: ADMIN_KEY
+  };
+
+  try {
+    var res = await fetch('/api/psa/admin/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    var data = await res.json();
+    if (!res.ok) { showToast(data.error||'Update failed.', 'error'); return; }
+    showToast('Submission updated!', 'success');
+    closeEditModal('psa');
+    loadPSA();
+  } catch(e) { showToast('Update failed.', 'error'); }
 }
 
 async function addPSA() {
   var card = document.getElementById('p-card').value.trim();
   var ref = document.getElementById('p-ref').value.trim();
   var date = document.getElementById('p-date').value;
+  var serviceLevel = document.getElementById('p-service-level').value;
   var status = document.getElementById('p-status').value;
   var grade = document.getElementById('p-grade').value.trim();
+  var notes = document.getElementById('p-notes').value.trim();
   var userId = document.getElementById('p-user-id').value;
+  var email = document.getElementById('p-customer-email').value;
+
   if (!card||!ref) { showToast('Card name and submission ref required.', 'error'); return; }
+
   try {
-    var res = await fetch('/api/psa/admin/add', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({submission_ref:ref,card_name:card,submitted_date:date||null,status,grade:grade||null,user_id:userId||null,admin_key:ADMIN_KEY}) });
+    var res = await fetch('/api/psa/admin/add', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        submission_ref: ref,
+        card_name: card,
+        submitted_date: date||null,
+        service_level: serviceLevel||null,
+        status, grade: grade||null,
+        notes: notes||null,
+        user_id: userId||null,
+        customer_email: email||null,
+        admin_key: ADMIN_KEY
+      })
+    });
     var data = await res.json();
     if (!res.ok) { showToast(data.error||'Failed.', 'error'); return; }
     showToast('Submission added!', 'success');
-    ['p-card','p-ref','p-date','p-grade','p-email'].forEach(function(id){document.getElementById(id).value='';});
-    document.getElementById('p-user-id').value='';
-    document.getElementById('p-lookup-result').textContent='';
+    ['p-card','p-ref','p-date','p-grade','p-notes'].forEach(function(id){document.getElementById(id).value='';});
+    document.getElementById('p-service-level').value = '';
+    clearCustomerSelection('p');
     loadPSA();
   } catch(e) { showToast('Failed.', 'error'); }
 }
 
 async function updatePSAStatus(ref, status) {
   try {
-    var res = await fetch('/api/psa/admin/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({submission_ref:ref,status,admin_key:ADMIN_KEY}) });
-    if (res.ok) { showToast('Status updated!', 'success'); updatePSAStats(allPSA.map(function(s){if(s.submission_ref===ref)s.status=status;return s;})); }
+    var res = await fetch('/api/psa/admin/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({submission_ref:ref, original_ref:ref, status, admin_key:ADMIN_KEY}) });
+    if (res.ok) {
+      showToast('Status updated!', 'success');
+      allPSA = allPSA.map(function(s){if(s.submission_ref===ref)s.status=status;return s;});
+      updatePSAStats(allPSA);
+    }
   } catch(e) {}
 }
 
 async function updatePSAGrade(ref, grade) {
   try {
     var s = allPSA.find(function(x){return x.submission_ref===ref;});
-    var res = await fetch('/api/psa/admin/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({submission_ref:ref,status:s?s.status:'complete',grade:grade||null,admin_key:ADMIN_KEY}) });
+    var res = await fetch('/api/psa/admin/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({submission_ref:ref, original_ref:ref, status:s?s.status:'complete', grade:grade||null, admin_key:ADMIN_KEY}) });
     if (res.ok) showToast('Grade updated!', 'success');
   } catch(e) {}
 }
@@ -1218,7 +1564,9 @@ async function deletePSA(ref) {
 }
 
 // ── MODALS ──
-function closeEditModal(type) { document.getElementById('edit-' + type + '-modal').classList.remove('open'); }
+function closeEditModal(type) {
+  document.getElementById('edit-' + type + '-modal').classList.remove('open');
+}
 
 // ── RANDOM TEAM ASSIGNMENT ──
 async function assignRandomTeams(breakId, sport) {
@@ -1231,10 +1579,7 @@ async function assignRandomTeams(breakId, sport) {
     });
     var data = await res.json();
     if (!res.ok) { showToast(data.error || 'Failed.', 'error'); return; }
-    
     showToast('Teams assigned!', 'success');
-    
-    // Show results
     var resultHtml = '<div style="margin-top:1rem;"><div class="section-label">Team Assignments</div>';
     resultHtml += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:1rem;">';
     data.assignments.forEach(function(a) {
@@ -1244,10 +1589,8 @@ async function assignRandomTeams(breakId, sport) {
       resultHtml += '</div>';
     });
     resultHtml += '</div></div>';
-    
     var content = document.getElementById('slots-modal-content');
     if (content) content.insertAdjacentHTML('beforeend', resultHtml);
-    
     loadBreaks();
   } catch(e) { showToast('Assignment failed.', 'error'); }
 }
