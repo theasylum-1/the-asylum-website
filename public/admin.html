@@ -283,11 +283,14 @@
         <div class="form-group"><label>Service Level</label>
           <select id="p-service-level">
             <option value="">— Select Level —</option>
-            <option value="economy">Economy</option>
+            <option value="value_bulk">Value Bulk</option>
+            <option value="value">Value</option>
+            <option value="value_plus">Value Plus</option>
+            <option value="value_max">Value Max</option>
             <option value="regular">Regular</option>
             <option value="express">Express</option>
-            <option value="walkthrough">Walkthrough</option>
             <option value="super_express">Super Express</option>
+            <option value="walk_through">Walk-Through</option>
           </select>
         </div>
         <div class="form-group"><label>Status</label>
@@ -429,11 +432,14 @@
       <div class="form-group"><label>Service Level</label>
         <select id="edit-p-service-level">
           <option value="">— Select Level —</option>
-          <option value="economy">Economy</option>
+          <option value="value_bulk">Value Bulk</option>
+          <option value="value">Value</option>
+          <option value="value_plus">Value Plus</option>
+          <option value="value_max">Value Max</option>
           <option value="regular">Regular</option>
           <option value="express">Express</option>
-          <option value="walkthrough">Walkthrough</option>
           <option value="super_express">Super Express</option>
+          <option value="walk_through">Walk-Through</option>
         </select>
       </div>
     </div>
@@ -1237,8 +1243,8 @@ var PSA_STATUSES = [
 ];
 
 var SERVICE_LEVEL_LABELS = {
-  economy: 'Economy', regular: 'Regular', express: 'Express',
-  walkthrough: 'Walkthrough', super_express: 'Super Express'
+  value_bulk: 'Value Bulk', value: 'Value', value_plus: 'Value Plus', value_max: 'Value Max',
+  regular: 'Regular', express: 'Express', super_express: 'Super Express', walk_through: 'Walk-Through'
 };
 
 async function loadPSA() {
