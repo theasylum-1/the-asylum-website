@@ -838,9 +838,8 @@ app.post('/webhook', async (req, res) => {
 });
 
 
-
 // ─────────────────────────────────────────
-// PSA ADMIN — LOOKUP USER BY EMAIL
+// ADMIN — LOOKUP USER BY EMAIL
 // ─────────────────────────────────────────
 app.get('/api/admin/user-by-email', async (req, res) => {
   const { email, admin_key } = req.query;
@@ -863,6 +862,34 @@ app.get('/api/admin/user-by-email', async (req, res) => {
 });
 
 // ─────────────────────────────────────────
+// ADMIN — GET ALL USERS (for customer dropdown)
+// ─────────────────────────────────────────
+app.get('/api/admin/users', async (req, res) => {
+  const { admin_key } = req.query;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const adminSupabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY
+    );
+    const { data, error } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 });
+    if (error) return res.status(500).json({ error: error.message });
+    const users = data.users.map(function(u) {
+      return {
+        user_id: u.id,
+        email: u.email,
+        name: u.user_metadata?.full_name || u.email
+      };
+    });
+    users.sort(function(a, b) { return (a.name || '').localeCompare(b.name || ''); });
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load users.' });
+  }
+});
+
+// ─────────────────────────────────────────
 // PSA ADMIN — ADD SUBMISSION
 // ─────────────────────────────────────────
 app.post('/api/psa/admin/add', async (req, res) => {
@@ -872,7 +899,17 @@ app.post('/api/psa/admin/add', async (req, res) => {
   try {
     const { data, error } = await getSupabase()
       .from('psa_submissions')
-      .insert({ submission_ref, card_name, submitted_date: submitted_date || null, status: status || 'received', grade: grade || null, notes: notes || null, user_id: req.body.user_id || null })
+      .insert({
+        submission_ref,
+        card_name,
+        submitted_date: submitted_date || null,
+        status: status || 'order_arrived',
+        grade: grade || null,
+        notes: notes || null,
+        user_id: req.body.user_id || null,
+        service_level: req.body.service_level || null,
+        customer_email: req.body.customer_email || null,
+      })
       .select().single();
     if (error) return res.status(500).json({ error: error.message, details: error.details, hint: error.hint });
     res.json({ success: true, submission: data });
@@ -882,17 +919,27 @@ app.post('/api/psa/admin/add', async (req, res) => {
 });
 
 // ─────────────────────────────────────────
-// PSA ADMIN — UPDATE STATUS
+// PSA ADMIN — UPDATE SUBMISSION (full edit)
 // ─────────────────────────────────────────
 app.post('/api/psa/admin/update', async (req, res) => {
-  const { submission_ref, status, grade, notes, admin_key } = req.body;
+  const { original_ref, submission_ref, card_name, submitted_date, service_level, status, grade, notes, user_id, customer_email, admin_key } = req.body;
   if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
-  if (!submission_ref || !status) return res.status(400).json({ error: 'Submission ref and status required.' });
+  const lookupRef = original_ref || submission_ref;
+  if (!lookupRef || !status) return res.status(400).json({ error: 'Submission ref and status required.' });
   try {
+    const updates = { status, updated_at: new Date().toISOString() };
+    if (submission_ref !== undefined) updates.submission_ref = submission_ref;
+    if (card_name !== undefined) updates.card_name = card_name;
+    if (submitted_date !== undefined) updates.submitted_date = submitted_date || null;
+    if (service_level !== undefined) updates.service_level = service_level || null;
+    if (grade !== undefined) updates.grade = grade || null;
+    if (notes !== undefined) updates.notes = notes || null;
+    if (user_id !== undefined) updates.user_id = user_id || null;
+    if (customer_email !== undefined) updates.customer_email = customer_email || null;
     const { data, error } = await getSupabase()
       .from('psa_submissions')
-      .update({ status, grade: grade || null, notes: notes || null, updated_at: new Date().toISOString() })
-      .eq('submission_ref', submission_ref)
+      .update(updates)
+      .eq('submission_ref', lookupRef)
       .select().single();
     if (error) return res.status(500).json({ error: error.message });
     res.json({ success: true, submission: data });
@@ -998,7 +1045,6 @@ app.post('/api/sms-subscribe', async (req, res) => {
     res.status(500).json({ error: 'Failed to subscribe. Please try again.' });
   }
 });
-
 
 
 // ─────────────────────────────────────────
@@ -1161,113 +1207,6 @@ app.get('/api/collection/:user_id/export', async (req, res) => {
 
 
 // ─────────────────────────────────────────
-// COLLECTION — GET USER'S ITEMS
-// ─────────────────────────────────────────
-app.get('/api/collection/:user_id', async (req, res) => {
-  try {
-    const { createClient } = require('@supabase/supabase-js');
-    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
-    const { data, error } = await db.from('collection_items').select('*').eq('user_id', req.params.user_id).order('created_at', { ascending: false });
-    if (error) return res.status(500).json({ error: error.message });
-    res.json(data || []);
-  } catch (err) { res.status(500).json({ error: 'Failed to load collection.' }); }
-});
-
-// ─────────────────────────────────────────
-// COLLECTION — ADD ITEM
-// ─────────────────────────────────────────
-app.post('/api/collection', async (req, res) => {
-  const { user_id, category } = req.body;
-  if (!user_id || !category) return res.status(400).json({ error: 'user_id and category required.' });
-  try {
-    const { createClient } = require('@supabase/supabase-js');
-    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
-    const insert = {
-      user_id, category,
-      player_character: req.body.player_character || null,
-      card_title: req.body.card_title || null,
-      brand: req.body.brand || null,
-      set_name: req.body.set_name || null,
-      year: req.body.year || null,
-      card_number: req.body.card_number || null,
-      parallel: req.body.parallel || null,
-      grade_company: req.body.grade_company || null,
-      grade: req.body.grade || null,
-      product_name: req.body.product_name || null,
-      box_type: req.body.box_type || null,
-      quantity: req.body.quantity || 1,
-      purchase_price: req.body.purchase_price || 0,
-      estimated_value: req.body.estimated_value || 0,
-      value_updated_at: req.body.value_updated_at || null,
-      notes: req.body.notes || null,
-    };
-    const { data, error } = await db.from('collection_items').insert(insert).select().single();
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ success: true, item: data });
-  } catch (err) { res.status(500).json({ error: 'Failed to add item.' }); }
-});
-
-// ─────────────────────────────────────────
-// COLLECTION — UPDATE ITEM
-// ─────────────────────────────────────────
-app.put('/api/collection/:id', async (req, res) => {
-  try {
-    const { createClient } = require('@supabase/supabase-js');
-    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
-    const updates = {
-      player_character: req.body.player_character || null,
-      card_title: req.body.card_title || null,
-      brand: req.body.brand || null,
-      set_name: req.body.set_name || null,
-      year: req.body.year || null,
-      card_number: req.body.card_number || null,
-      parallel: req.body.parallel || null,
-      grade_company: req.body.grade_company || null,
-      grade: req.body.grade || null,
-      product_name: req.body.product_name || null,
-      box_type: req.body.box_type || null,
-      quantity: req.body.quantity || 1,
-      purchase_price: req.body.purchase_price || 0,
-      estimated_value: req.body.estimated_value || 0,
-      value_updated_at: req.body.value_updated_at || null,
-      notes: req.body.notes || null,
-      updated_at: new Date().toISOString(),
-    };
-    const { data, error } = await db.from('collection_items').update(updates).eq('id', req.params.id).select().single();
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ success: true, item: data });
-  } catch (err) { res.status(500).json({ error: 'Failed to update item.' }); }
-});
-
-// ─────────────────────────────────────────
-// COLLECTION — DELETE ITEM
-// ─────────────────────────────────────────
-app.delete('/api/collection/:id', async (req, res) => {
-  try {
-    const { createClient } = require('@supabase/supabase-js');
-    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
-    const { error } = await db.from('collection_items').delete().eq('id', req.params.id);
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Failed to delete item.' }); }
-});
-
-// ─────────────────────────────────────────
-// COLLECTION — MARK AS SOLD
-// ─────────────────────────────────────────
-app.post('/api/collection/:id/sell', async (req, res) => {
-  const { sold_price, sold_date } = req.body;
-  try {
-    const { createClient } = require('@supabase/supabase-js');
-    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
-    const { data, error } = await db.from('collection_items').update({ is_sold: true, sold_price: sold_price || 0, sold_date: sold_date || null, updated_at: new Date().toISOString() }).eq('id', req.params.id).select().single();
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ success: true, item: data });
-  } catch (err) { res.status(500).json({ error: 'Failed to mark as sold.' }); }
-});
-
-
-// ─────────────────────────────────────────
 // COUPONS — VALIDATE
 // ─────────────────────────────────────────
 app.post('/api/coupons/validate', async (req, res) => {
@@ -1387,11 +1326,9 @@ app.get('/api/news', async (req, res) => {
   try {
     const results = await Promise.all(feeds.map(f => parseFeed(f.url, f.label)));
     let all = results.flat();
-    // Sort by date, most recent first
     all.sort(function(a, b) {
       return new Date(b.pubDate || 0) - new Date(a.pubDate || 0);
     });
-    // Limit to 30 items
     all = all.slice(0, 30);
     res.json(all);
   } catch (err) {
@@ -1408,10 +1345,8 @@ app.post('/api/contact', async (req, res) => {
     return res.status(400).json({ error: 'All fields are required.' });
   }
   try {
-    // Save to Supabase for your records
     await getSupabase().from('contact_messages').insert({ name, email, subject, message });
 
-    // Send email via Resend
     if (process.env.RESEND_API_KEY) {
       await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -1545,7 +1480,6 @@ app.get('/api/shipments/:id/track', async (req, res) => {
     const { createClient } = require('@supabase/supabase-js');
     const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
 
-    // Get shipment from DB
     const { data: shipment, error: fetchErr } = await db.from('shipments').select('*').eq('id', req.params.id).single();
     if (fetchErr || !shipment) return res.status(404).json({ error: 'Shipment not found.' });
     if (!shipment.tracking_number) return res.status(400).json({ error: 'No tracking number.' });
@@ -1553,7 +1487,6 @@ app.get('/api/shipments/:id/track', async (req, res) => {
     const carrierCode = SHIPENGINE_CARRIER_MAP[shipment.carrier];
     if (!carrierCode) return res.status(400).json({ error: 'Carrier not supported for auto-tracking.' });
 
-    // Call ShipEngine tracking API
     const trackRes = await fetch(
       `https://api.shipengine.com/v1/tracking?carrier_code=${carrierCode}&tracking_number=${shipment.tracking_number}`,
       { headers: { 'API-Key': process.env.SHIPENGINE_API_KEY, 'Content-Type': 'application/json' } }
@@ -1564,7 +1497,6 @@ app.get('/api/shipments/:id/track', async (req, res) => {
       return res.status(400).json({ error: trackData.errors[0].message || 'Tracking lookup failed.' });
     }
 
-    // Map ShipEngine status to our status codes
     let newStatus = shipment.status;
     const seStatus = (trackData.status_code || '').toUpperCase();
     if (seStatus === 'AC' || seStatus === 'IT') newStatus = 'in_transit';
@@ -1573,7 +1505,6 @@ app.get('/api/shipments/:id/track', async (req, res) => {
     else if (seStatus === 'EX' || seStatus === 'UN' || seStatus === 'AT') newStatus = 'exception';
     else if (seStatus === 'NY') newStatus = 'label_created';
 
-    // Build tracking events summary
     const events = (trackData.events || []).slice(0, 10).map(e => ({
       date: e.occurred_at || e.carrier_occurred_at || null,
       description: e.description || '',
@@ -1581,7 +1512,6 @@ app.get('/api/shipments/:id/track', async (req, res) => {
       state: e.state_province || '',
     }));
 
-    // Update shipment in DB
     const { data: updated, error: updateErr } = await db.from('shipments')
       .update({
         status: newStatus,
@@ -1611,7 +1541,6 @@ app.post('/api/shipments/refresh/:user_id', async (req, res) => {
     const { createClient } = require('@supabase/supabase-js');
     const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
 
-    // Get all active shipments with tracking numbers
     const { data: shipments, error } = await db.from('shipments')
       .select('*')
       .eq('user_id', req.params.user_id)
@@ -1662,7 +1591,6 @@ app.post('/api/shipments/refresh/:user_id', async (req, res) => {
       }
     }
 
-    // Re-fetch updated shipments
     const { data: refreshed } = await db.from('shipments')
       .select('*')
       .eq('user_id', req.params.user_id)
