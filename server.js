@@ -1574,25 +1574,15 @@ async function getFedExToken() {
 // ─────────────────────────────────────────
 async function trackUSPS(trackingNumber) {
   const token = await getUSPSToken();
-  const res = await fetch('https://apis.usps.com/tracking/v3/tracking', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-    body: JSON.stringify([{ trackingNumber: trackingNumber }])
+  const res = await fetch('https://apis.usps.com/tracking/v3/tracking/' + encodeURIComponent(trackingNumber) + '?expand=DETAIL', {
+    method: 'GET',
+    headers: { 'Authorization': 'Bearer ' + token }
   });
   const data = await res.json();
-  const pkg = Array.isArray(data) ? data[0] : data;
-  if (!pkg || pkg.error) throw new Error(pkg?.error?.message || 'USPS tracking failed: ' + JSON.stringify(data).substring(0, 500));
+  if (data.error) throw new Error(data.error.message || 'USPS tracking failed: ' + JSON.stringify(data).substring(0, 500));
 
-  // USPS statusCategory values:
-  // "Pre-Shipment" - label created, not yet in USPS possession
-  // "Accepted" - USPS has accepted/picked up the package
-  // "In Transit" - package is moving through the network
-  // "Out for Delivery" - on the delivery truck
-  // "Delivered" - delivered to recipient
-  // "Alert" - exception, delay, notice left, etc.
-  // "Return to Sender" - being returned
-  const cat = (pkg.statusCategory || '').toLowerCase();
-  const statusText = (pkg.status || '').toUpperCase();
+  const cat = (data.statusCategory || '').toLowerCase();
+  const statusText = (data.status || '').toUpperCase();
 
   let status = 'label_created';
   if (cat === 'pre-shipment' || cat === 'pre shipment') {
@@ -1609,14 +1599,14 @@ async function trackUSPS(trackingNumber) {
     status = 'exception';
   }
 
-  const events = (pkg.trackingEvents || []).slice(0, 10).map(e => ({
+  const events = (data.trackingEvents || []).slice(0, 10).map(e => ({
     date: e.eventTimestamp || null,
     description: e.eventType || '',
     city: e.eventCity || '',
     state: e.eventState || '',
   }));
 
-  return { status, events, raw_status: pkg.status || '' };
+  return { status, events, raw_status: data.status || '' };
 }
 
 async function trackUPS(trackingNumber) {
@@ -1811,10 +1801,8 @@ app.get('/api/shipments/:id/track-debug', async (req, res) => {
       rawResponse = await r.json();
     } else if (shipment.carrier === 'usps') {
       const token = await getUSPSToken();
-      const r = await fetch('https://apis.usps.com/tracking/v3/tracking', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify([{ trackingNumber: shipment.tracking_number }])
+      const r = await fetch('https://apis.usps.com/tracking/v3/tracking/' + encodeURIComponent(shipment.tracking_number) + '?expand=DETAIL', {
+        headers: { 'Authorization': 'Bearer ' + token }
       });
       rawResponse = await r.json();
     }
