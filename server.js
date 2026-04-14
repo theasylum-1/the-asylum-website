@@ -1581,16 +1581,33 @@ async function trackUSPS(trackingNumber) {
   });
   const data = await res.json();
   const pkg = Array.isArray(data) ? data[0] : data;
-  if (!pkg || pkg.error) throw new Error(pkg?.error?.message || 'USPS tracking failed');
+  if (!pkg || pkg.error) throw new Error(pkg?.error?.message || 'USPS tracking failed: ' + JSON.stringify(data).substring(0, 500));
 
-  // Map USPS statusCategory to our status
+  // USPS statusCategory values:
+  // "Pre-Shipment" - label created, not yet in USPS possession
+  // "Accepted" - USPS has accepted/picked up the package
+  // "In Transit" - package is moving through the network
+  // "Out for Delivery" - on the delivery truck
+  // "Delivered" - delivered to recipient
+  // "Alert" - exception, delay, notice left, etc.
+  // "Return to Sender" - being returned
   const cat = (pkg.statusCategory || '').toLowerCase();
+  const statusText = (pkg.status || '').toUpperCase();
+
   let status = 'label_created';
-  if (cat === 'accepted' || cat === 'in transit' || cat === 'in-transit') status = 'in_transit';
-  else if (cat === 'out for delivery') status = 'out_for_delivery';
-  else if (cat === 'delivered') status = 'delivered';
-  else if (cat === 'alert' || cat === 'return to sender') status = 'exception';
-  else if (cat === 'pre-shipment' || cat === 'pre shipment') status = 'label_created';
+  if (cat === 'pre-shipment' || cat === 'pre shipment') {
+    status = 'label_created';
+  } else if (cat === 'accepted' || statusText.includes('USPS IN POSSESSION') || statusText.includes('ACCEPTED') || statusText.includes('PICKED UP')) {
+    status = 'in_transit';
+  } else if (cat === 'in transit' || cat === 'in-transit' || statusText.includes('IN TRANSIT') || statusText.includes('DEPARTED') || statusText.includes('ARRIVED') || statusText.includes('PROCESSED') || statusText.includes('FORWARDED') || statusText.includes('CUSTOMS')) {
+    status = 'in_transit';
+  } else if (cat === 'out for delivery' || statusText.includes('OUT FOR DELIVERY')) {
+    status = 'out_for_delivery';
+  } else if (cat === 'delivered' || statusText.includes('DELIVERED')) {
+    status = 'delivered';
+  } else if (cat === 'alert' || cat === 'return to sender' || statusText.includes('NOTICE') || statusText.includes('RETURN') || statusText.includes('UNDELIVERABLE') || statusText.includes('REFUSED') || statusText.includes('HELD')) {
+    status = 'exception';
+  }
 
   const events = (pkg.trackingEvents || []).slice(0, 10).map(e => ({
     date: e.eventTimestamp || null,
@@ -1608,30 +1625,56 @@ async function trackUPS(trackingNumber) {
     headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'transId': Date.now().toString(), 'transactionSrc': 'asylum' }
   });
   const data = await res.json();
-  const pkg = data?.trackResponse?.shipment?.[0]?.package?.[0];
-  if (!pkg) throw new Error('UPS tracking returned no package data');
 
-  const upsStatus = (pkg.currentStatus?.code || pkg.currentStatus?.description || '').toUpperCase();
+  // UPS can nest data in multiple ways - try all known paths
+  const shipment = data?.trackResponse?.shipment?.[0];
+  const pkg = shipment?.package?.[0];
+  if (!shipment && !pkg) throw new Error('UPS tracking returned no data: ' + JSON.stringify(data).substring(0, 500));
+
+  // Get status from the most recent activity (first in the array)
+  const activities = pkg?.activity || shipment?.activity || [];
+  const latestActivity = activities[0];
+  const latestStatus = latestActivity?.status || {};
+  const statusType = (latestStatus.type || '').toUpperCase();
+  const statusDesc = (latestStatus.description || '').toUpperCase();
+  const statusCode = (latestStatus.code || '').toUpperCase();
+
+  // Also check currentStatus if available
+  const currentStatus = pkg?.currentStatus || {};
+  const csType = (currentStatus.type || '').toUpperCase();
+  const csDesc = (currentStatus.description || '').toUpperCase();
+  const csCode = (currentStatus.code || '').toUpperCase();
+
+  // Combine all status info for mapping
+  const allDesc = statusDesc + ' ' + csDesc;
+  const allType = statusType + ' ' + csType;
+
+  // UPS status type codes: M=Manifest/Pickup, I=In Transit, D=Delivered, X=Exception, P=Pickup, DO=Delivered Origin, DD=Delivered Destination
   let status = 'label_created';
-  if (upsStatus === 'M' || upsStatus === 'P') status = 'label_created';
-  else if (upsStatus === 'I' || upsStatus === 'IT' || upsStatus.includes('IN TRANSIT')) status = 'in_transit';
-  else if (upsStatus === 'O' || upsStatus.includes('OUT FOR DELIVERY')) status = 'out_for_delivery';
-  else if (upsStatus === 'D' || upsStatus.includes('DELIVERED')) status = 'delivered';
-  else if (upsStatus === 'X' || upsStatus.includes('EXCEPTION')) status = 'exception';
-  // Also check description for status mapping
-  const desc = (pkg.currentStatus?.description || '').toUpperCase();
-  if (desc.includes('IN TRANSIT') || desc.includes('ON THE WAY') || desc.includes('ARRIVED') || desc.includes('DEPARTED')) status = 'in_transit';
-  else if (desc.includes('OUT FOR DELIVERY')) status = 'out_for_delivery';
-  else if (desc.includes('DELIVERED')) status = 'delivered';
+  if (allType.includes('M') || allType.includes('P') || allDesc.includes('LABEL CREATED') || allDesc.includes('MANIFEST') || allDesc.includes('PICKUP SCAN') || allDesc.includes('ORDER PROCESSED') || allDesc.includes('SHIPPER CREATED')) {
+    status = 'label_created';
+  }
+  if (allType.includes('I') || allDesc.includes('IN TRANSIT') || allDesc.includes('ON THE WAY') || allDesc.includes('DEPARTED') || allDesc.includes('ARRIVED') || allDesc.includes('ORIGIN SCAN') || allDesc.includes('PROCESSING') || allDesc.includes('DESTINATION SCAN') || allDesc.includes('LOADED ON DELIVERY VEHICLE') === false && (allDesc.includes('SCAN') && !allDesc.includes('PICKUP'))) {
+    status = 'in_transit';
+  }
+  if (allDesc.includes('OUT FOR DELIVERY') || allDesc.includes('LOADED ON DELIVERY VEHICLE') || allDesc.includes('ON VEHICLE FOR DELIVERY')) {
+    status = 'out_for_delivery';
+  }
+  if (allType.includes('D') || allDesc.includes('DELIVERED')) {
+    status = 'delivered';
+  }
+  if (allType.includes('X') || allDesc.includes('EXCEPTION') || allDesc.includes('RETURNED') || allDesc.includes('UNDELIVERABLE')) {
+    status = 'exception';
+  }
 
-  const events = (pkg.activity || []).slice(0, 10).map(a => ({
-    date: a.date && a.time ? a.date + 'T' + a.time : a.date || null,
+  const events = activities.slice(0, 10).map(a => ({
+    date: a.date && a.time ? a.date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3') + 'T' + a.time.replace(/(\d{2})(\d{2})(\d{2})/, '$1:$2:$3') : a.date || null,
     description: a.status?.description || '',
     city: a.location?.address?.city || '',
     state: a.location?.address?.stateProvince || '',
   }));
 
-  return { status, events, raw_status: pkg.currentStatus?.description || '' };
+  return { status, events, raw_status: latestStatus.description || currentStatus.description || '' };
 }
 
 async function trackFedEx(trackingNumber) {
@@ -1643,17 +1686,41 @@ async function trackFedEx(trackingNumber) {
   });
   const data = await res.json();
   const result = data?.output?.completeTrackResults?.[0]?.trackResults?.[0];
-  if (!result) throw new Error('FedEx tracking returned no data');
+  if (!result) throw new Error('FedEx tracking returned no data: ' + JSON.stringify(data).substring(0, 500));
   if (result.error) throw new Error(result.error.message || 'FedEx tracking error');
 
-  const fdxStatus = (result.latestStatusDetail?.code || '').toUpperCase();
+  const fdxCode = (result.latestStatusDetail?.code || '').toUpperCase();
   const fdxDesc = (result.latestStatusDetail?.description || '').toUpperCase();
+  const fdxStatus = (result.latestStatusDetail?.statusByLocale || '').toUpperCase();
+
+  // FedEx status codes:
+  // PU = Picked Up, IT = In Transit, DP = Departed, AR = Arrived at, 
+  // OD = Out for Delivery, DL = Delivered, DE/SE/CA = Exception/Cancelled
+  // OC = Order Created, PX = Picked up (alternate), CD = Clearance Delay
+  // HL = Hold at Location, RS = Return to Shipper
   let status = 'label_created';
-  if (fdxStatus === 'IT' || fdxStatus === 'DP' || fdxStatus === 'AR' || fdxStatus === 'PU' || fdxDesc.includes('IN TRANSIT') || fdxDesc.includes('PICKED UP') || fdxDesc.includes('ARRIVED') || fdxDesc.includes('DEPARTED')) status = 'in_transit';
-  else if (fdxStatus === 'OD' || fdxDesc.includes('ON FEDEX VEHICLE') || fdxDesc.includes('OUT FOR DELIVERY')) status = 'out_for_delivery';
-  else if (fdxStatus === 'DL' || fdxDesc.includes('DELIVERED')) status = 'delivered';
-  else if (fdxStatus === 'DE' || fdxStatus === 'SE' || fdxDesc.includes('EXCEPTION') || fdxDesc.includes('DELAY')) status = 'exception';
-  else if (fdxStatus === 'PX' || fdxStatus === 'OC' || fdxDesc.includes('SHIPMENT INFORMATION') || fdxDesc.includes('LABEL')) status = 'label_created';
+
+  // Label/Pre-shipment
+  if (fdxCode === 'OC' || fdxCode === 'PX' || fdxDesc.includes('LABEL') || fdxDesc.includes('SHIPMENT INFORMATION') || fdxDesc.includes('CREATED') || fdxDesc.includes('INITIATED')) {
+    status = 'label_created';
+  }
+  // In Transit
+  if (fdxCode === 'IT' || fdxCode === 'DP' || fdxCode === 'AR' || fdxCode === 'PU' || fdxCode === 'AF' || fdxCode === 'CC' || fdxCode === 'CD' || fdxCode === 'HL' || fdxCode === 'SP' || fdxCode === 'TR' ||
+      fdxDesc.includes('IN TRANSIT') || fdxDesc.includes('PICKED UP') || fdxDesc.includes('ARRIVED') || fdxDesc.includes('DEPARTED') || fdxDesc.includes('AT FEDEX') || fdxDesc.includes('ON FEDEX') || fdxDesc.includes('CLEARANCE') || fdxDesc.includes('PROCESSING') || fdxDesc.includes('AT LOCAL') || fdxDesc.includes('AT DESTINATION') || fdxDesc.includes('IN LOCAL')) {
+    status = 'in_transit';
+  }
+  // Out for Delivery
+  if (fdxCode === 'OD' || fdxDesc.includes('ON VEHICLE FOR DELIVERY') || fdxDesc.includes('OUT FOR DELIVERY') || fdxDesc.includes('ON FEDEX VEHICLE')) {
+    status = 'out_for_delivery';
+  }
+  // Delivered
+  if (fdxCode === 'DL' || fdxDesc.includes('DELIVERED')) {
+    status = 'delivered';
+  }
+  // Exception
+  if (fdxCode === 'DE' || fdxCode === 'SE' || fdxCode === 'CA' || fdxCode === 'RS' || fdxDesc.includes('EXCEPTION') || fdxDesc.includes('DELAY') || fdxDesc.includes('RETURN') || fdxDesc.includes('UNDELIVERABLE') || fdxDesc.includes('REFUSED')) {
+    status = 'exception';
+  }
 
   const events = (result.scanEvents || []).slice(0, 10).map(e => ({
     date: e.date || null,
@@ -1714,6 +1781,46 @@ app.get('/api/shipments/:id/track', async (req, res) => {
   } catch (err) {
     console.error('Tracking error:', err.message);
     res.status(400).json({ error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────
+// DEBUG — View raw carrier response (temporary)
+// ─────────────────────────────────────────
+app.get('/api/shipments/:id/track-debug', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data: shipment } = await db.from('shipments').select('*').eq('id', req.params.id).single();
+    if (!shipment) return res.status(404).json({ error: 'Not found' });
+
+    let rawResponse = {};
+    if (shipment.carrier === 'ups') {
+      const token = await getUPSToken();
+      const r = await fetch('https://onlinetools.ups.com/api/track/v1/details/' + shipment.tracking_number, {
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'transId': Date.now().toString(), 'transactionSrc': 'asylum' }
+      });
+      rawResponse = await r.json();
+    } else if (shipment.carrier === 'fedex') {
+      const token = await getFedExToken();
+      const r = await fetch('https://apis.fedex.com/track/v1/trackingnumbers', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ includeDetailedScans: true, trackingInfo: [{ trackingNumberInfo: { trackingNumber: shipment.tracking_number } }] })
+      });
+      rawResponse = await r.json();
+    } else if (shipment.carrier === 'usps') {
+      const token = await getUSPSToken();
+      const r = await fetch('https://apis.usps.com/tracking/v3/tracking', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify([{ trackingNumber: shipment.tracking_number }])
+      });
+      rawResponse = await r.json();
+    }
+    res.json({ carrier: shipment.carrier, tracking_number: shipment.tracking_number, rawResponse });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
