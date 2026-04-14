@@ -838,8 +838,9 @@ app.post('/webhook', async (req, res) => {
 });
 
 
+
 // ─────────────────────────────────────────
-// ADMIN — LOOKUP USER BY EMAIL
+// PSA ADMIN — LOOKUP USER BY EMAIL
 // ─────────────────────────────────────────
 app.get('/api/admin/user-by-email', async (req, res) => {
   const { email, admin_key } = req.query;
@@ -862,34 +863,6 @@ app.get('/api/admin/user-by-email', async (req, res) => {
 });
 
 // ─────────────────────────────────────────
-// ADMIN — GET ALL USERS (for customer dropdown)
-// ─────────────────────────────────────────
-app.get('/api/admin/users', async (req, res) => {
-  const { admin_key } = req.query;
-  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
-  try {
-    const { createClient } = require('@supabase/supabase-js');
-    const adminSupabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY
-    );
-    const { data, error } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 });
-    if (error) return res.status(500).json({ error: error.message });
-    const users = data.users.map(function(u) {
-      return {
-        user_id: u.id,
-        email: u.email,
-        name: u.user_metadata?.full_name || u.email
-      };
-    });
-    users.sort(function(a, b) { return (a.name || '').localeCompare(b.name || ''); });
-    res.json(users);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to load users.' });
-  }
-});
-
-// ─────────────────────────────────────────
 // PSA ADMIN — ADD SUBMISSION
 // ─────────────────────────────────────────
 app.post('/api/psa/admin/add', async (req, res) => {
@@ -899,17 +872,7 @@ app.post('/api/psa/admin/add', async (req, res) => {
   try {
     const { data, error } = await getSupabase()
       .from('psa_submissions')
-      .insert({
-        submission_ref,
-        card_name,
-        submitted_date: submitted_date || null,
-        status: status || 'order_arrived',
-        grade: grade || null,
-        notes: notes || null,
-        user_id: req.body.user_id || null,
-        service_level: req.body.service_level || null,
-        customer_email: req.body.customer_email || null,
-      })
+      .insert({ submission_ref, card_name, submitted_date: submitted_date || null, status: status || 'received', grade: grade || null, notes: notes || null, user_id: req.body.user_id || null })
       .select().single();
     if (error) return res.status(500).json({ error: error.message, details: error.details, hint: error.hint });
     res.json({ success: true, submission: data });
@@ -919,27 +882,17 @@ app.post('/api/psa/admin/add', async (req, res) => {
 });
 
 // ─────────────────────────────────────────
-// PSA ADMIN — UPDATE SUBMISSION (full edit)
+// PSA ADMIN — UPDATE STATUS
 // ─────────────────────────────────────────
 app.post('/api/psa/admin/update', async (req, res) => {
-  const { original_ref, submission_ref, card_name, submitted_date, service_level, status, grade, notes, user_id, customer_email, admin_key } = req.body;
+  const { submission_ref, status, grade, notes, admin_key } = req.body;
   if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
-  const lookupRef = original_ref || submission_ref;
-  if (!lookupRef || !status) return res.status(400).json({ error: 'Submission ref and status required.' });
+  if (!submission_ref || !status) return res.status(400).json({ error: 'Submission ref and status required.' });
   try {
-    const updates = { status, updated_at: new Date().toISOString() };
-    if (submission_ref !== undefined) updates.submission_ref = submission_ref;
-    if (card_name !== undefined) updates.card_name = card_name;
-    if (submitted_date !== undefined) updates.submitted_date = submitted_date || null;
-    if (service_level !== undefined) updates.service_level = service_level || null;
-    if (grade !== undefined) updates.grade = grade || null;
-    if (notes !== undefined) updates.notes = notes || null;
-    if (user_id !== undefined) updates.user_id = user_id || null;
-    if (customer_email !== undefined) updates.customer_email = customer_email || null;
     const { data, error } = await getSupabase()
       .from('psa_submissions')
-      .update(updates)
-      .eq('submission_ref', lookupRef)
+      .update({ status, grade: grade || null, notes: notes || null, updated_at: new Date().toISOString() })
+      .eq('submission_ref', submission_ref)
       .select().single();
     if (error) return res.status(500).json({ error: error.message });
     res.json({ success: true, submission: data });
@@ -1045,6 +998,7 @@ app.post('/api/sms-subscribe', async (req, res) => {
     res.status(500).json({ error: 'Failed to subscribe. Please try again.' });
   }
 });
+
 
 
 // ─────────────────────────────────────────
@@ -1207,6 +1161,113 @@ app.get('/api/collection/:user_id/export', async (req, res) => {
 
 
 // ─────────────────────────────────────────
+// COLLECTION — GET USER'S ITEMS
+// ─────────────────────────────────────────
+app.get('/api/collection/:user_id', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data, error } = await db.from('collection_items').select('*').eq('user_id', req.params.user_id).order('created_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  } catch (err) { res.status(500).json({ error: 'Failed to load collection.' }); }
+});
+
+// ─────────────────────────────────────────
+// COLLECTION — ADD ITEM
+// ─────────────────────────────────────────
+app.post('/api/collection', async (req, res) => {
+  const { user_id, category } = req.body;
+  if (!user_id || !category) return res.status(400).json({ error: 'user_id and category required.' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const insert = {
+      user_id, category,
+      player_character: req.body.player_character || null,
+      card_title: req.body.card_title || null,
+      brand: req.body.brand || null,
+      set_name: req.body.set_name || null,
+      year: req.body.year || null,
+      card_number: req.body.card_number || null,
+      parallel: req.body.parallel || null,
+      grade_company: req.body.grade_company || null,
+      grade: req.body.grade || null,
+      product_name: req.body.product_name || null,
+      box_type: req.body.box_type || null,
+      quantity: req.body.quantity || 1,
+      purchase_price: req.body.purchase_price || 0,
+      estimated_value: req.body.estimated_value || 0,
+      value_updated_at: req.body.value_updated_at || null,
+      notes: req.body.notes || null,
+    };
+    const { data, error } = await db.from('collection_items').insert(insert).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, item: data });
+  } catch (err) { res.status(500).json({ error: 'Failed to add item.' }); }
+});
+
+// ─────────────────────────────────────────
+// COLLECTION — UPDATE ITEM
+// ─────────────────────────────────────────
+app.put('/api/collection/:id', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const updates = {
+      player_character: req.body.player_character || null,
+      card_title: req.body.card_title || null,
+      brand: req.body.brand || null,
+      set_name: req.body.set_name || null,
+      year: req.body.year || null,
+      card_number: req.body.card_number || null,
+      parallel: req.body.parallel || null,
+      grade_company: req.body.grade_company || null,
+      grade: req.body.grade || null,
+      product_name: req.body.product_name || null,
+      box_type: req.body.box_type || null,
+      quantity: req.body.quantity || 1,
+      purchase_price: req.body.purchase_price || 0,
+      estimated_value: req.body.estimated_value || 0,
+      value_updated_at: req.body.value_updated_at || null,
+      notes: req.body.notes || null,
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await db.from('collection_items').update(updates).eq('id', req.params.id).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, item: data });
+  } catch (err) { res.status(500).json({ error: 'Failed to update item.' }); }
+});
+
+// ─────────────────────────────────────────
+// COLLECTION — DELETE ITEM
+// ─────────────────────────────────────────
+app.delete('/api/collection/:id', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { error } = await db.from('collection_items').delete().eq('id', req.params.id);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Failed to delete item.' }); }
+});
+
+// ─────────────────────────────────────────
+// COLLECTION — MARK AS SOLD
+// ─────────────────────────────────────────
+app.post('/api/collection/:id/sell', async (req, res) => {
+  const { sold_price, sold_date } = req.body;
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data, error } = await db.from('collection_items').update({ is_sold: true, sold_price: sold_price || 0, sold_date: sold_date || null, updated_at: new Date().toISOString() }).eq('id', req.params.id).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, item: data });
+  } catch (err) { res.status(500).json({ error: 'Failed to mark as sold.' }); }
+});
+
+
+// ─────────────────────────────────────────
 // COUPONS — VALIDATE
 // ─────────────────────────────────────────
 app.post('/api/coupons/validate', async (req, res) => {
@@ -1326,9 +1387,11 @@ app.get('/api/news', async (req, res) => {
   try {
     const results = await Promise.all(feeds.map(f => parseFeed(f.url, f.label)));
     let all = results.flat();
+    // Sort by date, most recent first
     all.sort(function(a, b) {
       return new Date(b.pubDate || 0) - new Date(a.pubDate || 0);
     });
+    // Limit to 30 items
     all = all.slice(0, 30);
     res.json(all);
   } catch (err) {
@@ -1345,8 +1408,10 @@ app.post('/api/contact', async (req, res) => {
     return res.status(400).json({ error: 'All fields are required.' });
   }
   try {
+    // Save to Supabase for your records
     await getSupabase().from('contact_messages').insert({ name, email, subject, message });
 
+    // Send email via Resend
     if (process.env.RESEND_API_KEY) {
       await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -1460,22 +1525,169 @@ app.delete('/api/shipments/:id', async (req, res) => {
 });
 
 // ─────────────────────────────────────────
-// SHIPENGINE — CARRIER CODE MAPPING
+// CARRIER TRACKING — OAuth Token Cache
 // ─────────────────────────────────────────
-const SHIPENGINE_CARRIER_MAP = {
-  usps: 'stamps_com',
-  ups: 'ups',
-  fedex: 'fedex',
-  dhl: 'dhl_express',
-  amazon: 'amazon_shipping',
-  ontrac: 'ontrac',
-};
+const tokenCache = {};
+
+async function getUSPSToken() {
+  if (tokenCache.usps && tokenCache.usps.expiresAt > Date.now()) return tokenCache.usps.token;
+  const res = await fetch('https://apis.usps.com/oauth2/v3/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ client_id: process.env.USPS_CLIENT_ID, client_secret: process.env.USPS_CLIENT_SECRET, grant_type: 'client_credentials' })
+  });
+  const data = await res.json();
+  if (!data.access_token) throw new Error('USPS auth failed: ' + JSON.stringify(data));
+  tokenCache.usps = { token: data.access_token, expiresAt: Date.now() + (parseInt(data.expires_in || '3600') - 300) * 1000 };
+  return data.access_token;
+}
+
+async function getUPSToken() {
+  if (tokenCache.ups && tokenCache.ups.expiresAt > Date.now()) return tokenCache.ups.token;
+  const creds = Buffer.from(process.env.UPS_CLIENT_ID + ':' + process.env.UPS_CLIENT_SECRET).toString('base64');
+  const res = await fetch('https://onlinetools.ups.com/security/v1/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': 'Basic ' + creds },
+    body: 'grant_type=client_credentials'
+  });
+  const data = await res.json();
+  if (!data.access_token) throw new Error('UPS auth failed: ' + JSON.stringify(data));
+  tokenCache.ups = { token: data.access_token, expiresAt: Date.now() + (parseInt(data.expires_in || '14399') - 300) * 1000 };
+  return data.access_token;
+}
+
+async function getFedExToken() {
+  if (tokenCache.fedex && tokenCache.fedex.expiresAt > Date.now()) return tokenCache.fedex.token;
+  const res = await fetch('https://apis.fedex.com/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=client_credentials&client_id=' + encodeURIComponent(process.env.FEDEX_CLIENT_ID) + '&client_secret=' + encodeURIComponent(process.env.FEDEX_CLIENT_SECRET)
+  });
+  const data = await res.json();
+  if (!data.access_token) throw new Error('FedEx auth failed: ' + JSON.stringify(data));
+  tokenCache.fedex = { token: data.access_token, expiresAt: Date.now() + (parseInt(data.expires_in || '3600') - 300) * 1000 };
+  return data.access_token;
+}
 
 // ─────────────────────────────────────────
-// SHIPENGINE — TRACK SINGLE SHIPMENT
+// CARRIER TRACKING — Fetch tracking from each carrier
+// ─────────────────────────────────────────
+async function trackUSPS(trackingNumber) {
+  const token = await getUSPSToken();
+  const res = await fetch('https://apis.usps.com/tracking/v3/tracking', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify([{ trackingNumber: trackingNumber }])
+  });
+  const data = await res.json();
+  const pkg = Array.isArray(data) ? data[0] : data;
+  if (!pkg || pkg.error) throw new Error(pkg?.error?.message || 'USPS tracking failed');
+
+  // Map USPS statusCategory to our status
+  const cat = (pkg.statusCategory || '').toLowerCase();
+  let status = 'label_created';
+  if (cat === 'accepted' || cat === 'in transit' || cat === 'in-transit') status = 'in_transit';
+  else if (cat === 'out for delivery') status = 'out_for_delivery';
+  else if (cat === 'delivered') status = 'delivered';
+  else if (cat === 'alert' || cat === 'return to sender') status = 'exception';
+  else if (cat === 'pre-shipment' || cat === 'pre shipment') status = 'label_created';
+
+  const events = (pkg.trackingEvents || []).slice(0, 10).map(e => ({
+    date: e.eventTimestamp || null,
+    description: e.eventType || '',
+    city: e.eventCity || '',
+    state: e.eventState || '',
+  }));
+
+  return { status, events, raw_status: pkg.status || '' };
+}
+
+async function trackUPS(trackingNumber) {
+  const token = await getUPSToken();
+  const res = await fetch('https://onlinetools.ups.com/api/track/v1/details/' + trackingNumber, {
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'transId': Date.now().toString(), 'transactionSrc': 'asylum' }
+  });
+  const data = await res.json();
+  const pkg = data?.trackResponse?.shipment?.[0]?.package?.[0];
+  if (!pkg) throw new Error('UPS tracking returned no package data');
+
+  const upsStatus = (pkg.currentStatus?.code || pkg.currentStatus?.description || '').toUpperCase();
+  let status = 'label_created';
+  if (upsStatus === 'M' || upsStatus === 'P') status = 'label_created';
+  else if (upsStatus === 'I' || upsStatus === 'IT' || upsStatus.includes('IN TRANSIT')) status = 'in_transit';
+  else if (upsStatus === 'O' || upsStatus.includes('OUT FOR DELIVERY')) status = 'out_for_delivery';
+  else if (upsStatus === 'D' || upsStatus.includes('DELIVERED')) status = 'delivered';
+  else if (upsStatus === 'X' || upsStatus.includes('EXCEPTION')) status = 'exception';
+  // Also check description for status mapping
+  const desc = (pkg.currentStatus?.description || '').toUpperCase();
+  if (desc.includes('IN TRANSIT') || desc.includes('ON THE WAY') || desc.includes('ARRIVED') || desc.includes('DEPARTED')) status = 'in_transit';
+  else if (desc.includes('OUT FOR DELIVERY')) status = 'out_for_delivery';
+  else if (desc.includes('DELIVERED')) status = 'delivered';
+
+  const events = (pkg.activity || []).slice(0, 10).map(a => ({
+    date: a.date && a.time ? a.date + 'T' + a.time : a.date || null,
+    description: a.status?.description || '',
+    city: a.location?.address?.city || '',
+    state: a.location?.address?.stateProvince || '',
+  }));
+
+  return { status, events, raw_status: pkg.currentStatus?.description || '' };
+}
+
+async function trackFedEx(trackingNumber) {
+  const token = await getFedExToken();
+  const res = await fetch('https://apis.fedex.com/track/v1/trackingnumbers', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ includeDetailedScans: true, trackingInfo: [{ trackingNumberInfo: { trackingNumber: trackingNumber } }] })
+  });
+  const data = await res.json();
+  const result = data?.output?.completeTrackResults?.[0]?.trackResults?.[0];
+  if (!result) throw new Error('FedEx tracking returned no data');
+  if (result.error) throw new Error(result.error.message || 'FedEx tracking error');
+
+  const fdxStatus = (result.latestStatusDetail?.code || '').toUpperCase();
+  const fdxDesc = (result.latestStatusDetail?.description || '').toUpperCase();
+  let status = 'label_created';
+  if (fdxStatus === 'IT' || fdxStatus === 'DP' || fdxStatus === 'AR' || fdxStatus === 'PU' || fdxDesc.includes('IN TRANSIT') || fdxDesc.includes('PICKED UP') || fdxDesc.includes('ARRIVED') || fdxDesc.includes('DEPARTED')) status = 'in_transit';
+  else if (fdxStatus === 'OD' || fdxDesc.includes('ON FEDEX VEHICLE') || fdxDesc.includes('OUT FOR DELIVERY')) status = 'out_for_delivery';
+  else if (fdxStatus === 'DL' || fdxDesc.includes('DELIVERED')) status = 'delivered';
+  else if (fdxStatus === 'DE' || fdxStatus === 'SE' || fdxDesc.includes('EXCEPTION') || fdxDesc.includes('DELAY')) status = 'exception';
+  else if (fdxStatus === 'PX' || fdxStatus === 'OC' || fdxDesc.includes('SHIPMENT INFORMATION') || fdxDesc.includes('LABEL')) status = 'label_created';
+
+  const events = (result.scanEvents || []).slice(0, 10).map(e => ({
+    date: e.date || null,
+    description: e.eventDescription || '',
+    city: e.scanLocation?.city || '',
+    state: e.scanLocation?.stateOrProvinceCode || '',
+  }));
+
+  return { status, events, raw_status: result.latestStatusDetail?.description || '' };
+}
+
+// ─────────────────────────────────────────
+// CARRIER TRACKING — Route to correct carrier
+// ─────────────────────────────────────────
+async function trackPackage(carrier, trackingNumber) {
+  switch (carrier) {
+    case 'usps':
+      if (!process.env.USPS_CLIENT_ID) throw new Error('USPS credentials not configured');
+      return await trackUSPS(trackingNumber);
+    case 'ups':
+      if (!process.env.UPS_CLIENT_ID) throw new Error('UPS credentials not configured');
+      return await trackUPS(trackingNumber);
+    case 'fedex':
+      if (!process.env.FEDEX_CLIENT_ID) throw new Error('FedEx credentials not configured');
+      return await trackFedEx(trackingNumber);
+    default:
+      throw new Error('Carrier "' + carrier + '" does not support auto-tracking');
+  }
+}
+
+// ─────────────────────────────────────────
+// TRACK SINGLE SHIPMENT
 // ─────────────────────────────────────────
 app.get('/api/shipments/:id/track', async (req, res) => {
-  if (!process.env.SHIPENGINE_API_KEY) return res.status(500).json({ error: 'ShipEngine not configured.' });
   try {
     const { createClient } = require('@supabase/supabase-js');
     const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
@@ -1484,38 +1696,12 @@ app.get('/api/shipments/:id/track', async (req, res) => {
     if (fetchErr || !shipment) return res.status(404).json({ error: 'Shipment not found.' });
     if (!shipment.tracking_number) return res.status(400).json({ error: 'No tracking number.' });
 
-    const carrierCode = SHIPENGINE_CARRIER_MAP[shipment.carrier];
-    if (!carrierCode) return res.status(400).json({ error: 'Carrier not supported for auto-tracking.' });
-
-    const trackRes = await fetch(
-      `https://api.shipengine.com/v1/tracking?carrier_code=${carrierCode}&tracking_number=${shipment.tracking_number}`,
-      { headers: { 'API-Key': process.env.SHIPENGINE_API_KEY, 'Content-Type': 'application/json' } }
-    );
-    const trackData = await trackRes.json();
-
-    if (trackData.errors && trackData.errors.length) {
-      return res.status(400).json({ error: trackData.errors[0].message || 'Tracking lookup failed.' });
-    }
-
-    let newStatus = shipment.status;
-    const seStatus = (trackData.status_code || '').toUpperCase();
-    if (seStatus === 'AC' || seStatus === 'IT') newStatus = 'in_transit';
-    else if (seStatus === 'OT') newStatus = 'out_for_delivery';
-    else if (seStatus === 'DE') newStatus = 'delivered';
-    else if (seStatus === 'EX' || seStatus === 'UN' || seStatus === 'AT') newStatus = 'exception';
-    else if (seStatus === 'NY') newStatus = 'label_created';
-
-    const events = (trackData.events || []).slice(0, 10).map(e => ({
-      date: e.occurred_at || e.carrier_occurred_at || null,
-      description: e.description || '',
-      city: e.city_locality || '',
-      state: e.state_province || '',
-    }));
+    const result = await trackPackage(shipment.carrier, shipment.tracking_number);
 
     const { data: updated, error: updateErr } = await db.from('shipments')
       .update({
-        status: newStatus,
-        tracking_details: JSON.stringify(events),
+        status: result.status,
+        tracking_details: JSON.stringify(result.events),
         last_tracked_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -1524,19 +1710,17 @@ app.get('/api/shipments/:id/track', async (req, res) => {
       .single();
 
     if (updateErr) return res.status(500).json({ error: updateErr.message });
-
-    res.json({ success: true, shipment: updated, tracking: { status_code: seStatus, events } });
+    res.json({ success: true, shipment: updated, tracking: result });
   } catch (err) {
-    console.error('ShipEngine tracking error:', err);
-    res.status(500).json({ error: 'Failed to fetch tracking.' });
+    console.error('Tracking error:', err.message);
+    res.status(400).json({ error: err.message });
   }
 });
 
 // ─────────────────────────────────────────
-// SHIPENGINE — REFRESH ALL ACTIVE SHIPMENTS FOR USER
+// REFRESH ALL ACTIVE SHIPMENTS FOR USER
 // ─────────────────────────────────────────
 app.post('/api/shipments/refresh/:user_id', async (req, res) => {
-  if (!process.env.SHIPENGINE_API_KEY) return res.status(500).json({ error: 'ShipEngine not configured.' });
   try {
     const { createClient } = require('@supabase/supabase-js');
     const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
@@ -1551,43 +1735,26 @@ app.post('/api/shipments/refresh/:user_id', async (req, res) => {
     if (!shipments || !shipments.length) return res.json({ success: true, updated: 0 });
 
     let updatedCount = 0;
+    const errors = [];
     for (const shipment of shipments) {
-      const carrierCode = SHIPENGINE_CARRIER_MAP[shipment.carrier];
-      if (!carrierCode || !shipment.tracking_number) continue;
+      if (!shipment.tracking_number) continue;
+      // Only track carriers we support
+      if (!['usps', 'ups', 'fedex'].includes(shipment.carrier)) continue;
 
       try {
-        const trackRes = await fetch(
-          `https://api.shipengine.com/v1/tracking?carrier_code=${carrierCode}&tracking_number=${shipment.tracking_number}`,
-          { headers: { 'API-Key': process.env.SHIPENGINE_API_KEY, 'Content-Type': 'application/json' } }
-        );
-        const trackData = await trackRes.json();
-        if (trackData.errors && trackData.errors.length) continue;
-
-        let newStatus = shipment.status;
-        const seStatus = (trackData.status_code || '').toUpperCase();
-        if (seStatus === 'AC' || seStatus === 'IT') newStatus = 'in_transit';
-        else if (seStatus === 'OT') newStatus = 'out_for_delivery';
-        else if (seStatus === 'DE') newStatus = 'delivered';
-        else if (seStatus === 'EX' || seStatus === 'UN' || seStatus === 'AT') newStatus = 'exception';
-        else if (seStatus === 'NY') newStatus = 'label_created';
-
-        const events = (trackData.events || []).slice(0, 10).map(e => ({
-          date: e.occurred_at || e.carrier_occurred_at || null,
-          description: e.description || '',
-          city: e.city_locality || '',
-          state: e.state_province || '',
-        }));
+        const result = await trackPackage(shipment.carrier, shipment.tracking_number);
 
         await db.from('shipments').update({
-          status: newStatus,
-          tracking_details: JSON.stringify(events),
+          status: result.status,
+          tracking_details: JSON.stringify(result.events),
           last_tracked_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }).eq('id', shipment.id);
 
         updatedCount++;
       } catch (innerErr) {
-        console.error('Track error for shipment', shipment.id, innerErr.message);
+        console.error('Track error for', shipment.carrier, shipment.tracking_number, innerErr.message);
+        errors.push({ id: shipment.id, carrier: shipment.carrier, error: innerErr.message });
       }
     }
 
@@ -1596,7 +1763,7 @@ app.post('/api/shipments/refresh/:user_id', async (req, res) => {
       .eq('user_id', req.params.user_id)
       .order('updated_at', { ascending: false });
 
-    res.json({ success: true, updated: updatedCount, shipments: refreshed || [] });
+    res.json({ success: true, updated: updatedCount, errors: errors, shipments: refreshed || [] });
   } catch (err) {
     console.error('Refresh tracking error:', err);
     res.status(500).json({ error: 'Failed to refresh tracking.' });
