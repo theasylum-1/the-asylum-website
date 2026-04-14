@@ -1481,7 +1481,7 @@ app.post('/api/shipments', async (req, res) => {
       tracking_number: req.body.tracking_number || null,
       carrier: req.body.carrier || 'other',
       direction: req.body.direction || 'incoming',
-      status: req.body.status || 'label_created',
+      status: req.body.status || (req.body.carrier === 'usps' || req.body.carrier === 'other' || req.body.carrier === 'dhl' || req.body.carrier === 'ontrac' || req.body.carrier === 'amazon' ? 'shipped' : 'label_created'),
       notes: req.body.notes || null,
     };
     const { data, error } = await db.from('shipments').insert(item).select().single();
@@ -1728,8 +1728,7 @@ async function trackFedEx(trackingNumber) {
 async function trackPackage(carrier, trackingNumber) {
   switch (carrier) {
     case 'usps':
-      if (!process.env.USPS_CLIENT_ID) throw new Error('USPS credentials not configured');
-      return await trackUSPS(trackingNumber);
+      throw new Error('USPS_MANUAL');
     case 'ups':
       if (!process.env.UPS_CLIENT_ID) throw new Error('UPS credentials not configured');
       return await trackUPS(trackingNumber);

@@ -1502,11 +1502,15 @@ var CARRIERS = [
 
 var SHIP_STATUSES = [
   { id: 'label_created', label: 'Label Created', icon: '\uD83C\uDFF7\uFE0F', step: 0 },
+  { id: 'shipped', label: 'Shipped', icon: '\uD83D\uDCE6', step: 1 },
   { id: 'in_transit', label: 'In Transit', icon: '\uD83D\uDE9A', step: 1 },
   { id: 'out_for_delivery', label: 'Out for Delivery', icon: '\uD83D\uDCEC', step: 2 },
   { id: 'delivered', label: 'Delivered', icon: '\u2705', step: 3 },
   { id: 'exception', label: 'Exception', icon: '\u26A0\uFE0F', step: -1 }
 ];
+
+// Carriers that support auto-tracking
+var AUTO_TRACK_CARRIERS = ['ups', 'fedex'];
 
 function getCarrier(id) {
   for (var i = 0; i < CARRIERS.length; i++) { if (CARRIERS[i].id === id) return CARRIERS[i]; }
@@ -1706,6 +1710,16 @@ function buildShipmentCard(ship) {
     }
   }
   card.appendChild(progressBar);
+
+  // Mark Delivered button for carriers without auto-tracking
+  var isAutoTracked = AUTO_TRACK_CARRIERS.indexOf(ship.carrier) !== -1;
+  if (!isAutoTracked && ship.status !== 'delivered') {
+    var markDeliveredBtn = document.createElement('button');
+    markDeliveredBtn.style.cssText = 'margin-top:10px;padding:6px 16px;font-family:Barlow Condensed,sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:1px solid rgba(76,175,80,0.4);background:rgba(76,175,80,0.1);color:#66bb6a;';
+    markDeliveredBtn.textContent = '\u2705 Mark Delivered';
+    markDeliveredBtn.onclick = function() { markShipmentDelivered(ship.id); };
+    card.appendChild(markDeliveredBtn);
+  }
 
   // Notes
   if (ship.notes) {
@@ -2057,6 +2071,29 @@ async function refreshAllTracking() {
   }
 
   if (btn) { btn.textContent = '\uD83D\uDD04 Refresh Tracking'; btn.disabled = false; }
+}
+
+async function markShipmentDelivered(shipId) {
+  if (!currentUser) return;
+  try {
+    var res = await fetch(API + '/api/shipments/' + shipId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'delivered' })
+    });
+    if (!res.ok) { showToast('Failed to update.', 'error'); return; }
+    for (var i = 0; i < shipmentData.length; i++) {
+      if (shipmentData[i].id === shipId) {
+        shipmentData[i].status = 'delivered';
+        shipmentData[i].updated_at = new Date().toISOString();
+        break;
+      }
+    }
+    renderShipmentList();
+    showToast('Marked as delivered!', 'success');
+  } catch (err) {
+    showToast('Failed to update.', 'error');
+  }
 }
 
 // ─────────────────────────────────────────
