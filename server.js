@@ -243,6 +243,34 @@ app.post('/api/auth/signin', async (req, res) => {
 
 
 // ─────────────────────────────────────────
+// ADMIN — LIST ALL USERS (for dropdowns)
+// ─────────────────────────────────────────
+app.get('/api/admin/users', async (req, res) => {
+  const { admin_key } = req.query;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const adminSupabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY
+    );
+    const { data, error } = await adminSupabase.auth.admin.listUsers();
+    if (error) return res.status(500).json({ error: error.message });
+    const users = (data.users || []).map(function(u) {
+      return {
+        user_id: u.id,
+        id: u.id,
+        email: u.email,
+        name: u.user_metadata && u.user_metadata.full_name ? u.user_metadata.full_name : null
+      };
+    });
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to list users.' });
+  }
+});
+
+// ─────────────────────────────────────────
 // BREAKS ADMIN — UPDATE
 // ─────────────────────────────────────────
 app.post('/api/breaks/admin/update', async (req, res) => {
@@ -1161,113 +1189,6 @@ app.get('/api/collection/:user_id/export', async (req, res) => {
 
 
 // ─────────────────────────────────────────
-// COLLECTION — GET USER'S ITEMS
-// ─────────────────────────────────────────
-app.get('/api/collection/:user_id', async (req, res) => {
-  try {
-    const { createClient } = require('@supabase/supabase-js');
-    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
-    const { data, error } = await db.from('collection_items').select('*').eq('user_id', req.params.user_id).order('created_at', { ascending: false });
-    if (error) return res.status(500).json({ error: error.message });
-    res.json(data || []);
-  } catch (err) { res.status(500).json({ error: 'Failed to load collection.' }); }
-});
-
-// ─────────────────────────────────────────
-// COLLECTION — ADD ITEM
-// ─────────────────────────────────────────
-app.post('/api/collection', async (req, res) => {
-  const { user_id, category } = req.body;
-  if (!user_id || !category) return res.status(400).json({ error: 'user_id and category required.' });
-  try {
-    const { createClient } = require('@supabase/supabase-js');
-    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
-    const insert = {
-      user_id, category,
-      player_character: req.body.player_character || null,
-      card_title: req.body.card_title || null,
-      brand: req.body.brand || null,
-      set_name: req.body.set_name || null,
-      year: req.body.year || null,
-      card_number: req.body.card_number || null,
-      parallel: req.body.parallel || null,
-      grade_company: req.body.grade_company || null,
-      grade: req.body.grade || null,
-      product_name: req.body.product_name || null,
-      box_type: req.body.box_type || null,
-      quantity: req.body.quantity || 1,
-      purchase_price: req.body.purchase_price || 0,
-      estimated_value: req.body.estimated_value || 0,
-      value_updated_at: req.body.value_updated_at || null,
-      notes: req.body.notes || null,
-    };
-    const { data, error } = await db.from('collection_items').insert(insert).select().single();
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ success: true, item: data });
-  } catch (err) { res.status(500).json({ error: 'Failed to add item.' }); }
-});
-
-// ─────────────────────────────────────────
-// COLLECTION — UPDATE ITEM
-// ─────────────────────────────────────────
-app.put('/api/collection/:id', async (req, res) => {
-  try {
-    const { createClient } = require('@supabase/supabase-js');
-    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
-    const updates = {
-      player_character: req.body.player_character || null,
-      card_title: req.body.card_title || null,
-      brand: req.body.brand || null,
-      set_name: req.body.set_name || null,
-      year: req.body.year || null,
-      card_number: req.body.card_number || null,
-      parallel: req.body.parallel || null,
-      grade_company: req.body.grade_company || null,
-      grade: req.body.grade || null,
-      product_name: req.body.product_name || null,
-      box_type: req.body.box_type || null,
-      quantity: req.body.quantity || 1,
-      purchase_price: req.body.purchase_price || 0,
-      estimated_value: req.body.estimated_value || 0,
-      value_updated_at: req.body.value_updated_at || null,
-      notes: req.body.notes || null,
-      updated_at: new Date().toISOString(),
-    };
-    const { data, error } = await db.from('collection_items').update(updates).eq('id', req.params.id).select().single();
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ success: true, item: data });
-  } catch (err) { res.status(500).json({ error: 'Failed to update item.' }); }
-});
-
-// ─────────────────────────────────────────
-// COLLECTION — DELETE ITEM
-// ─────────────────────────────────────────
-app.delete('/api/collection/:id', async (req, res) => {
-  try {
-    const { createClient } = require('@supabase/supabase-js');
-    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
-    const { error } = await db.from('collection_items').delete().eq('id', req.params.id);
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Failed to delete item.' }); }
-});
-
-// ─────────────────────────────────────────
-// COLLECTION — MARK AS SOLD
-// ─────────────────────────────────────────
-app.post('/api/collection/:id/sell', async (req, res) => {
-  const { sold_price, sold_date } = req.body;
-  try {
-    const { createClient } = require('@supabase/supabase-js');
-    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
-    const { data, error } = await db.from('collection_items').update({ is_sold: true, sold_price: sold_price || 0, sold_date: sold_date || null, updated_at: new Date().toISOString() }).eq('id', req.params.id).select().single();
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ success: true, item: data });
-  } catch (err) { res.status(500).json({ error: 'Failed to mark as sold.' }); }
-});
-
-
-// ─────────────────────────────────────────
 // COUPONS — VALIDATE
 // ─────────────────────────────────────────
 app.post('/api/coupons/validate', async (req, res) => {
@@ -1349,7 +1270,7 @@ app.delete('/api/coupons/admin/delete/:id', async (req, res) => {
 // ─────────────────────────────────────────
 app.get('/api/news', async (req, res) => {
   const feeds = [
-    { url: 'https://www.pokebeach.com/feed', label: 'Pokémon TCG' },
+    { url: 'https://www.pokebeach.com/feed', label: 'Pokemon TCG' },
     { url: 'https://www.sportscollectorsdaily.com/feed/', label: 'Sports Cards' },
     { url: 'https://blog.psacard.com/feed/', label: 'PSA' },
     { url: 'https://bleedingcool.com/games/card-games/feed/', label: 'Card Games' },
@@ -1423,9 +1344,9 @@ app.post('/api/contact', async (req, res) => {
           from: 'The Asylum Website <onboarding@resend.dev>',
           to: ['theasylumbranding@gmail.com'],
           reply_to: email,
-          subject: '[The Asylum] ' + subject + ' — from ' + name,
+          subject: '[The Asylum] ' + subject + ' from ' + name,
           html: '<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">' +
-            '<h2 style="color:#c0392b;">New Message — The Asylum Website</h2>' +
+            '<h2 style="color:#c0392b;">New Message from The Asylum Website</h2>' +
             '<table style="width:100%;border-collapse:collapse;">' +
             '<tr><td style="padding:8px;color:#888;width:100px;">Topic</td><td style="padding:8px;font-weight:bold;">' + subject + '</td></tr>' +
             '<tr><td style="padding:8px;color:#888;">From</td><td style="padding:8px;">' + name + '</td></tr>' +
@@ -1434,7 +1355,7 @@ app.post('/api/contact', async (req, res) => {
             '<div style="background:#f5f5f5;padding:1.5rem;margin-top:1rem;border-left:4px solid #c0392b;">' +
             '<p style="margin:0;white-space:pre-wrap;">' + message + '</p>' +
             '</div>' +
-            '<p style="color:#888;font-size:12px;margin-top:1rem;">Sent from theasylumcollective.com — reply directly to this email to respond to ' + name + '</p>' +
+            '<p style="color:#888;font-size:12px;margin-top:1rem;">Sent from theasylumcollective.com</p>' +
             '</div>'
         })
       });
@@ -1467,7 +1388,7 @@ app.get('/api/shipments/:user_id', async (req, res) => {
 });
 
 // ─────────────────────────────────────────
-// SHIPMENTS — ADD
+// SHIPMENTS — ADD (member self-add)
 // ─────────────────────────────────────────
 app.post('/api/shipments', async (req, res) => {
   const { user_id } = req.body;
@@ -1481,7 +1402,7 @@ app.post('/api/shipments', async (req, res) => {
       tracking_number: req.body.tracking_number || null,
       carrier: req.body.carrier || 'other',
       direction: req.body.direction || 'incoming',
-      status: req.body.status || (req.body.carrier === 'usps' || req.body.carrier === 'other' || req.body.carrier === 'dhl' || req.body.carrier === 'ontrac' || req.body.carrier === 'amazon' ? 'shipped' : 'label_created'),
+      status: req.body.status || 'shipped',
       notes: req.body.notes || null,
     };
     const { data, error } = await db.from('shipments').insert(item).select().single();
@@ -1489,6 +1410,53 @@ app.post('/api/shipments', async (req, res) => {
     res.json({ success: true, shipment: data });
   } catch (err) {
     res.status(500).json({ error: 'Failed to add shipment.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// SHIPMENTS — ADMIN ADD (assign to any member)
+// ─────────────────────────────────────────
+app.post('/api/shipments/admin/add', async (req, res) => {
+  const { admin_key, user_id } = req.body;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  if (!user_id) return res.status(400).json({ error: 'User ID required.' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const item = {
+      user_id,
+      description: req.body.description || null,
+      tracking_number: req.body.tracking_number || null,
+      carrier: req.body.carrier || 'other',
+      direction: 'outgoing',
+      status: 'shipped',
+      notes: req.body.notes || null,
+    };
+    const { data, error } = await db.from('shipments').insert(item).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, shipment: data });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add shipment.' });
+  }
+});
+
+// ─────────────────────────────────────────
+// SHIPMENTS — ADMIN GET ALL (all users)
+// ─────────────────────────────────────────
+app.get('/api/shipments/admin/all', async (req, res) => {
+  const { admin_key } = req.query;
+  if (admin_key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Unauthorized.' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data, error } = await db
+      .from('shipments')
+      .select('*')
+      .order('updated_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load shipments.' });
   }
 });
 
@@ -1616,35 +1584,28 @@ async function trackUPS(trackingNumber) {
   });
   const data = await res.json();
 
-  // UPS can nest data in multiple ways - try all known paths
   const shipment = data?.trackResponse?.shipment?.[0];
   const pkg = shipment?.package?.[0];
   if (!shipment && !pkg) throw new Error('UPS tracking returned no data: ' + JSON.stringify(data).substring(0, 500));
 
-  // Get status from the most recent activity (first in the array)
   const activities = pkg?.activity || shipment?.activity || [];
   const latestActivity = activities[0];
   const latestStatus = latestActivity?.status || {};
   const statusType = (latestStatus.type || '').toUpperCase();
   const statusDesc = (latestStatus.description || '').toUpperCase();
-  const statusCode = (latestStatus.code || '').toUpperCase();
 
-  // Also check currentStatus if available
   const currentStatus = pkg?.currentStatus || {};
   const csType = (currentStatus.type || '').toUpperCase();
   const csDesc = (currentStatus.description || '').toUpperCase();
-  const csCode = (currentStatus.code || '').toUpperCase();
 
-  // Combine all status info for mapping
   const allDesc = statusDesc + ' ' + csDesc;
   const allType = statusType + ' ' + csType;
 
-  // UPS status type codes: M=Manifest/Pickup, I=In Transit, D=Delivered, X=Exception, P=Pickup, DO=Delivered Origin, DD=Delivered Destination
   let status = 'label_created';
   if (allType.includes('M') || allType.includes('P') || allDesc.includes('LABEL CREATED') || allDesc.includes('MANIFEST') || allDesc.includes('PICKUP SCAN') || allDesc.includes('ORDER PROCESSED') || allDesc.includes('SHIPPER CREATED')) {
     status = 'label_created';
   }
-  if (allType.includes('I') || allDesc.includes('IN TRANSIT') || allDesc.includes('ON THE WAY') || allDesc.includes('DEPARTED') || allDesc.includes('ARRIVED') || allDesc.includes('ORIGIN SCAN') || allDesc.includes('PROCESSING') || allDesc.includes('DESTINATION SCAN') || allDesc.includes('LOADED ON DELIVERY VEHICLE') === false && (allDesc.includes('SCAN') && !allDesc.includes('PICKUP'))) {
+  if (allType.includes('I') || allDesc.includes('IN TRANSIT') || allDesc.includes('ON THE WAY') || allDesc.includes('DEPARTED') || allDesc.includes('ARRIVED') || allDesc.includes('ORIGIN SCAN') || allDesc.includes('PROCESSING') || allDesc.includes('DESTINATION SCAN')) {
     status = 'in_transit';
   }
   if (allDesc.includes('OUT FOR DELIVERY') || allDesc.includes('LOADED ON DELIVERY VEHICLE') || allDesc.includes('ON VEHICLE FOR DELIVERY')) {
@@ -1681,33 +1642,22 @@ async function trackFedEx(trackingNumber) {
 
   const fdxCode = (result.latestStatusDetail?.code || '').toUpperCase();
   const fdxDesc = (result.latestStatusDetail?.description || '').toUpperCase();
-  const fdxStatus = (result.latestStatusDetail?.statusByLocale || '').toUpperCase();
 
-  // FedEx status codes:
-  // PU = Picked Up, IT = In Transit, DP = Departed, AR = Arrived at, 
-  // OD = Out for Delivery, DL = Delivered, DE/SE/CA = Exception/Cancelled
-  // OC = Order Created, PX = Picked up (alternate), CD = Clearance Delay
-  // HL = Hold at Location, RS = Return to Shipper
   let status = 'label_created';
 
-  // Label/Pre-shipment
   if (fdxCode === 'OC' || fdxCode === 'PX' || fdxDesc.includes('LABEL') || fdxDesc.includes('SHIPMENT INFORMATION') || fdxDesc.includes('CREATED') || fdxDesc.includes('INITIATED')) {
     status = 'label_created';
   }
-  // In Transit
   if (fdxCode === 'IT' || fdxCode === 'DP' || fdxCode === 'AR' || fdxCode === 'PU' || fdxCode === 'AF' || fdxCode === 'CC' || fdxCode === 'CD' || fdxCode === 'HL' || fdxCode === 'SP' || fdxCode === 'TR' ||
-      fdxDesc.includes('IN TRANSIT') || fdxDesc.includes('PICKED UP') || fdxDesc.includes('ARRIVED') || fdxDesc.includes('DEPARTED') || fdxDesc.includes('AT FEDEX') || fdxDesc.includes('ON FEDEX') || fdxDesc.includes('CLEARANCE') || fdxDesc.includes('PROCESSING') || fdxDesc.includes('AT LOCAL') || fdxDesc.includes('AT DESTINATION') || fdxDesc.includes('IN LOCAL')) {
+      fdxDesc.includes('IN TRANSIT') || fdxDesc.includes('PICKED UP') || fdxDesc.includes('ARRIVED') || fdxDesc.includes('DEPARTED') || fdxDesc.includes('AT FEDEX') || fdxDesc.includes('ON FEDEX') || fdxDesc.includes('CLEARANCE') || fdxDesc.includes('PROCESSING')) {
     status = 'in_transit';
   }
-  // Out for Delivery
   if (fdxCode === 'OD' || fdxDesc.includes('ON VEHICLE FOR DELIVERY') || fdxDesc.includes('OUT FOR DELIVERY') || fdxDesc.includes('ON FEDEX VEHICLE')) {
     status = 'out_for_delivery';
   }
-  // Delivered
   if (fdxCode === 'DL' || fdxDesc.includes('DELIVERED')) {
     status = 'delivered';
   }
-  // Exception
   if (fdxCode === 'DE' || fdxCode === 'SE' || fdxCode === 'CA' || fdxCode === 'RS' || fdxDesc.includes('EXCEPTION') || fdxDesc.includes('DELAY') || fdxDesc.includes('RETURN') || fdxDesc.includes('UNDELIVERABLE') || fdxDesc.includes('REFUSED')) {
     status = 'exception';
   }
@@ -1832,7 +1782,6 @@ app.post('/api/shipments/refresh/:user_id', async (req, res) => {
     const errors = [];
     for (const shipment of shipments) {
       if (!shipment.tracking_number) continue;
-      // Only track carriers we support
       if (!['usps', 'ups', 'fedex'].includes(shipment.carrier)) continue;
 
       try {

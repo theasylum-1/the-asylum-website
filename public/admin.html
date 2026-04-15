@@ -124,6 +124,7 @@
     <div class="tab" onclick="switchTab('shop', this)">Shop</div>
     <div class="tab" onclick="switchTab('psa', this)">PSA Submissions</div>
     <div class="tab" onclick="switchTab('coupons', this)">Coupons</div>
+    <div class="tab" onclick="switchTab('shipments', this)">Shipments</div>
   </div>
 
   <!-- BREAKS TAB -->
@@ -140,7 +141,7 @@
       <div class="section-label">Add New Break</div>
       <div class="form-grid three">
         <div class="form-group"><label>Break Name</label><input type="text" id="b-name" placeholder="e.g. Prismatic Evolutions Case Break"></div>
-        <div class="form-group"><label>Date & Time</label><input type="text" id="b-date" placeholder="e.g. Sat Apr 5 · 8PM EST"></div>
+        <div class="form-group"><label>Date &amp; Time</label><input type="text" id="b-date" placeholder="e.g. Sat Apr 5 · 8PM EST"></div>
         <div class="form-group"><label>Brand</label>
           <select id="b-brand" onchange="updateBreakTypeOptions()">
             <option value="hsa">High St Asylum (TCG)</option>
@@ -168,7 +169,7 @@
         <input type="number" id="b-spots" placeholder="Leave blank for energy/pick team — auto-calculated">
       </div>
       <div id="team-price-grid" style="display:none;margin-bottom:1rem;"></div>
-      <button class="btn-primary" onclick="addBreak()">+ Add Break & Setup Slots</button>
+      <button class="btn-primary" onclick="addBreak()">+ Add Break &amp; Setup Slots</button>
     </div>
 
     <!-- BREAKS TABLE -->
@@ -197,14 +198,13 @@
       <div class="stat"><div class="stat-num red" id="ss-outstock">0</div><div class="stat-label">Out of Stock</div></div>
     </div>
 
-    <!-- ADD ITEM -->
     <div class="card">
       <div class="section-label">Add New Shop Item</div>
       <div class="form-grid two">
         <div class="form-group"><label>Item Title</label><input type="text" id="s-title" placeholder="e.g. Charizard ex — 151"></div>
         <div class="form-group"><label>Category</label>
           <select id="s-category">
-            <option value="Pokemon TCG">Pokémon TCG</option>
+            <option value="Pokemon TCG">Pokemon TCG</option>
             <option value="One Piece TCG">One Piece TCG</option>
             <option value="Sports Cards">Sports Cards</option>
             <option value="Sealed Product">Sealed Product</option>
@@ -216,9 +216,7 @@
       <div class="form-grid three">
         <div class="form-group"><label>Condition</label><input type="text" id="s-condition" placeholder="e.g. NM/M, PSA 10"></div>
         <div class="form-group"><label>Price ($)</label><input type="number" id="s-price" placeholder="49.99" step="0.01"></div>
-        <div class="form-group"><label>Quantity</label>
-          <input type="number" id="s-quantity" placeholder="1" min="0" value="1">
-        </div>
+        <div class="form-group"><label>Quantity</label><input type="number" id="s-quantity" placeholder="1" min="0" value="1"></div>
         <div class="form-group"><label>In Stock</label>
           <select id="s-instock"><option value="true">Yes — In Stock</option><option value="false">No — Out of Stock</option></select>
         </div>
@@ -235,7 +233,6 @@
       <button class="btn-primary" onclick="addShopItem()">+ Add Item</button>
     </div>
 
-    <!-- SHOP TABLE -->
     <div class="card">
       <div class="section-label">All Shop Items</div>
       <div class="search-row">
@@ -261,7 +258,6 @@
       <div class="stat"><div class="stat-num red" id="ps-complete">0</div><div class="stat-label">Complete</div></div>
     </div>
 
-    <!-- ADD SUBMISSION FORM -->
     <div class="card">
       <div class="section-label">Add New Submission</div>
       <div class="form-grid three">
@@ -300,7 +296,7 @@
             <option value="shipped_to_psa">Shipped to PSA</option>
             <option value="arrived_to_psa">Order Arrived to PSA</option>
             <option value="order_prep">Order Prep</option>
-            <option value="research_id">Research & ID</option>
+            <option value="research_id">Research &amp; ID</option>
             <option value="grading">Grading</option>
             <option value="assembly">Assembly</option>
             <option value="qa_checks">QA Checks</option>
@@ -334,6 +330,96 @@
     </div>
   </div>
 
+  <!-- COUPONS TAB -->
+  <div id="tab-coupons" class="tab-content">
+    <div class="card">
+      <div class="section-label">Create Coupon Code</div>
+      <div class="form-grid three">
+        <div class="form-group"><label>Code</label><input type="text" id="c-code" placeholder="e.g. SAVE20" oninput="this.value=this.value.toUpperCase()"></div>
+        <div class="form-group"><label>Type</label><select id="c-type"><option value="percent">Percent Off (%)</option><option value="fixed">Fixed Amount ($)</option></select></div>
+        <div class="form-group"><label>Value</label><input type="number" id="c-value" placeholder="e.g. 10" min="0" step="0.01"></div>
+      </div>
+      <div class="form-grid two">
+        <div class="form-group"><label>Usage Limit (blank = unlimited)</label><input type="number" id="c-limit" placeholder="e.g. 100"></div>
+        <div class="form-group"><label>Expiry Date (optional)</label><input type="date" id="c-expires"></div>
+      </div>
+      <button class="btn-primary" onclick="addCoupon()">+ Create Coupon</button>
+    </div>
+    <div class="card">
+      <div class="section-label">All Coupons</div>
+      <div id="coupons-list"><p style="color:var(--muted);">Loading...</p></div>
+    </div>
+  </div>
+
+  <!-- SHIPMENTS TAB -->
+  <div id="tab-shipments" class="tab-content">
+    <div class="stats-row" id="shipments-stats">
+      <div class="stat"><div class="stat-num blue" id="sh-total">0</div><div class="stat-label">Total</div></div>
+      <div class="stat"><div class="stat-num orange" id="sh-intransit">0</div><div class="stat-label">In Transit</div></div>
+      <div class="stat"><div class="stat-num green" id="sh-delivered">0</div><div class="stat-label">Delivered</div></div>
+    </div>
+
+    <!-- ADD SHIPMENT FORM -->
+    <div class="card">
+      <div class="section-label">Assign Tracking to a Member</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:1.25rem;line-height:1.6;">Use this for website orders and Discord breaks alike. Select a member, enter the tracking info, and it will appear on their account page instantly.</p>
+      <div class="form-grid two">
+        <div class="form-group">
+          <label>Member</label>
+          <div class="customer-select-wrap">
+            <input type="text" class="customer-search-input" id="sh-customer-search" placeholder="Search by name or email..." autocomplete="off" oninput="filterCustomerDropdown('sh')" onfocus="openCustomerDropdown('sh')" onblur="delayCloseCustomerDropdown('sh')">
+            <div class="customer-dropdown" id="sh-customer-dropdown"></div>
+          </div>
+          <div class="customer-selected-badge" id="sh-customer-badge"></div>
+          <input type="hidden" id="sh-user-id">
+          <input type="hidden" id="sh-customer-email">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" id="sh-description" placeholder="e.g. April Discord Break, Shop Order #12">
+        </div>
+      </div>
+      <div class="form-grid three">
+        <div class="form-group">
+          <label>Carrier</label>
+          <select id="sh-carrier">
+            <option value="usps">USPS</option>
+            <option value="ups">UPS</option>
+            <option value="fedex">FedEx</option>
+            <option value="dhl">DHL</option>
+            <option value="ontrac">OnTrac</option>
+            <option value="amazon">Amazon</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tracking Number</label>
+          <input type="text" id="sh-tracking" placeholder="e.g. 9400111899223456789012">
+        </div>
+        <div class="form-group">
+          <label>Internal Notes (optional)</label>
+          <input type="text" id="sh-notes" placeholder="e.g. Paid via Venmo — Mar 28 break">
+        </div>
+      </div>
+      <button class="btn-primary" onclick="adminAddShipment()">+ Assign Tracking</button>
+    </div>
+
+    <!-- ALL SHIPMENTS TABLE -->
+    <div class="card">
+      <div class="section-label">All Member Shipments</div>
+      <div class="search-row">
+        <input type="text" id="shipments-search" placeholder="Search by member, description, or tracking..." oninput="filterShipments()">
+        <button class="btn-outline btn-sm" onclick="loadAdminShipments()">Refresh</button>
+      </div>
+      <div class="filter-row">
+        <button class="filter-btn active" onclick="setShipmentsFilter('all',this)">All</button>
+        <button class="filter-btn" onclick="setShipmentsFilter('shipped',this)">In Transit</button>
+        <button class="filter-btn" onclick="setShipmentsFilter('delivered',this)">Delivered</button>
+      </div>
+      <div id="shipments-table-wrap"><p style="color:var(--muted);font-size:14px;">Loading...</p></div>
+    </div>
+  </div>
+
 </div><!-- end dashboard -->
 
 
@@ -354,7 +440,7 @@
     <input type="hidden" id="edit-break-id">
     <div class="form-grid two">
       <div class="form-group"><label>Break Name</label><input type="text" id="edit-b-name"></div>
-      <div class="form-group"><label>Date & Time</label><input type="text" id="edit-b-date"></div>
+      <div class="form-group"><label>Date &amp; Time</label><input type="text" id="edit-b-date"></div>
     </div>
     <div class="form-grid three">
       <div class="form-group"><label>Price ($)</label><input type="number" id="edit-b-price"></div>
@@ -388,7 +474,7 @@
       <div class="form-group"><label>Title</label><input type="text" id="edit-s-title"></div>
       <div class="form-group"><label>Category</label>
         <select id="edit-s-category">
-          <option value="Pokemon TCG">Pokémon TCG</option><option value="One Piece TCG">One Piece TCG</option>
+          <option value="Pokemon TCG">Pokemon TCG</option><option value="One Piece TCG">One Piece TCG</option>
           <option value="Sports Cards">Sports Cards</option><option value="Sealed Product">Sealed Product</option>
           <option value="Graded Cards">Graded Cards</option><option value="Other">Other</option>
         </select>
@@ -397,9 +483,7 @@
     <div class="form-grid three">
       <div class="form-group"><label>Condition</label><input type="text" id="edit-s-condition"></div>
       <div class="form-group"><label>Price ($)</label><input type="number" id="edit-s-price" step="0.01"></div>
-      <div class="form-group"><label>Quantity</label>
-        <input type="number" id="edit-s-quantity" min="0" value="1">
-      </div>
+      <div class="form-group"><label>Quantity</label><input type="number" id="edit-s-quantity" min="0" value="1"></div>
       <div class="form-group"><label>Stock</label>
         <select id="edit-s-instock"><option value="true">In Stock</option><option value="false">Out of Stock</option></select>
       </div>
@@ -461,7 +545,7 @@
           <option value="shipped_to_psa">Shipped to PSA</option>
           <option value="arrived_to_psa">Order Arrived to PSA</option>
           <option value="order_prep">Order Prep</option>
-          <option value="research_id">Research & ID</option>
+          <option value="research_id">Research &amp; ID</option>
           <option value="grading">Grading</option>
           <option value="assembly">Assembly</option>
           <option value="qa_checks">QA Checks</option>
@@ -480,31 +564,10 @@
   </div>
 </div>
 
-<!-- COUPONS TAB -->
-<div id="tab-coupons" class="tab-content">
-  <div class="card">
-    <div class="section-label">Create Coupon Code</div>
-    <div class="form-grid three">
-      <div class="form-group"><label>Code</label><input type="text" id="c-code" placeholder="e.g. SAVE20" oninput="this.value=this.value.toUpperCase()"></div>
-      <div class="form-group"><label>Type</label><select id="c-type"><option value="percent">Percent Off (%)</option><option value="fixed">Fixed Amount ($)</option></select></div>
-      <div class="form-group"><label>Value</label><input type="number" id="c-value" placeholder="e.g. 10" min="0" step="0.01"></div>
-    </div>
-    <div class="form-grid two">
-      <div class="form-group"><label>Usage Limit (blank = unlimited)</label><input type="number" id="c-limit" placeholder="e.g. 100"></div>
-      <div class="form-group"><label>Expiry Date (optional)</label><input type="date" id="c-expires"></div>
-    </div>
-    <button class="btn-primary" onclick="addCoupon()">+ Create Coupon</button>
-  </div>
-  <div class="card">
-    <div class="section-label">All Coupons</div>
-    <div id="coupons-list"><p style="color:var(--muted);">Loading...</p></div>
-  </div>
-</div>
-
 <script>
 var ADMIN_KEY = '';
-var allBreaks = [], allShop = [], allPSA = [], allCustomers = [];
-var breakFilter = 'all', shopFilter = 'all', psaFilter = 'all';
+var allBreaks = [], allShop = [], allPSA = [], allCustomers = [], allAdminShipments = [];
+var breakFilter = 'all', shopFilter = 'all', psaFilter = 'all', shipmentsFilter = 'all';
 
 // ── CUSTOMER DROPDOWN ──
 async function loadCustomers() {
@@ -563,7 +626,6 @@ function filterCustomerDropdown(prefix) {
   var q = document.getElementById(prefix + '-customer-search').value;
   buildCustomerDropdownHTML(prefix, q);
   document.getElementById(prefix + '-customer-dropdown').classList.add('open');
-  // Clear selection if user is typing
   document.getElementById(prefix + '-user-id').value = '';
   document.getElementById(prefix + '-customer-email').value = '';
   var badge = document.getElementById(prefix + '-customer-badge');
@@ -833,6 +895,214 @@ async function deleteCoupon(id) {
   } catch(e) { showToast('Failed.', 'error'); }
 }
 
+// ── SHIPMENTS ──
+async function loadAdminShipments() {
+  try {
+    var res = await fetch('/api/shipments/admin/all?admin_key=' + encodeURIComponent(ADMIN_KEY));
+    if (!res.ok) { showToast('Failed to load shipments.', 'error'); return; }
+    var data = await res.json();
+    allAdminShipments = data;
+    updateShipmentsStats(data);
+    renderShipmentsTable(data);
+  } catch(e) { showToast('Failed to load shipments.', 'error'); }
+}
+
+function updateShipmentsStats(data) {
+  document.getElementById('sh-total').textContent = data.length;
+  var inTransit = data.filter(function(s){ return s.status !== 'delivered' && s.status !== 'label_created'; }).length;
+  var delivered = data.filter(function(s){ return s.status === 'delivered'; }).length;
+  document.getElementById('sh-intransit').textContent = inTransit;
+  document.getElementById('sh-delivered').textContent = delivered;
+}
+
+function setShipmentsFilter(f, el) {
+  shipmentsFilter = f;
+  document.querySelectorAll('#tab-shipments .filter-btn').forEach(function(b){b.classList.remove('active');});
+  el.classList.add('active');
+  filterShipments();
+}
+
+function filterShipments() {
+  var search = (document.getElementById('shipments-search').value || '').toLowerCase();
+  var filtered = allAdminShipments.filter(function(s) {
+    var mf = shipmentsFilter === 'all' ||
+      (shipmentsFilter === 'shipped' && s.status !== 'delivered' && s.status !== 'label_created') ||
+      (shipmentsFilter === 'delivered' && s.status === 'delivered');
+    var ms = !search ||
+      (s.description && s.description.toLowerCase().includes(search)) ||
+      (s.tracking_number && s.tracking_number.toLowerCase().includes(search)) ||
+      (s.carrier && s.carrier.toLowerCase().includes(search)) ||
+      (s.notes && s.notes.toLowerCase().includes(search));
+    return mf && ms;
+  });
+  renderShipmentsTable(filtered);
+}
+
+var CARRIER_LABELS = { usps:'USPS', ups:'UPS', fedex:'FedEx', dhl:'DHL', ontrac:'OnTrac', amazon:'Amazon', other:'Other' };
+var STATUS_LABELS = { label_created:'Label Created', shipped:'Shipped', in_transit:'In Transit', out_for_delivery:'Out for Delivery', delivered:'Delivered', exception:'Exception' };
+var STATUS_COLORS = { label_created:'#888', shipped:'#5b9cf6', in_transit:'#5b9cf6', out_for_delivery:'#ff9800', delivered:'#4caf50', exception:'#e74c3c' };
+var STATUS_BG = { label_created:'#1a1a1a', shipped:'#1a1a2a', in_transit:'#1a1a2a', out_for_delivery:'#2a1a0a', delivered:'#1a2a1a', exception:'#2a0a0a' };
+
+function renderShipmentsTable(data) {
+  var wrap = document.getElementById('shipments-table-wrap');
+  if (!data.length) { wrap.innerHTML = '<p style="color:var(--muted);font-size:14px;padding:1rem 0;">No shipments found.</p>'; return; }
+
+  var table = document.createElement('table');
+  var thead = document.createElement('thead');
+  var hRow = document.createElement('tr');
+  ['Member','Description','Carrier','Tracking Number','Status','Date','Actions'].forEach(function(h) {
+    var th = document.createElement('th');
+    th.textContent = h;
+    hRow.appendChild(th);
+  });
+  thead.appendChild(hRow);
+  table.appendChild(thead);
+
+  var tbody = document.createElement('tbody');
+
+  // Build a lookup map of user_id -> name from allCustomers
+  var customerMap = {};
+  allCustomers.forEach(function(c) { customerMap[c.user_id || c.id] = c; });
+
+  data.forEach(function(s) {
+    var tr = document.createElement('tr');
+
+    // Member
+    var tdMember = document.createElement('td');
+    var customer = customerMap[s.user_id];
+    if (customer) {
+      var nameDiv = document.createElement('div');
+      nameDiv.style.cssText = 'font-weight:600;font-size:13px;';
+      nameDiv.textContent = customer.name || '(no name)';
+      var emailDiv = document.createElement('div');
+      emailDiv.style.cssText = 'font-size:11px;color:var(--muted);';
+      emailDiv.textContent = customer.email || '';
+      tdMember.appendChild(nameDiv);
+      tdMember.appendChild(emailDiv);
+    } else {
+      tdMember.style.color = 'var(--muted)';
+      tdMember.style.fontSize = '12px';
+      tdMember.textContent = s.user_id ? s.user_id.substring(0, 8) + '...' : 'Unknown';
+    }
+    tr.appendChild(tdMember);
+
+    // Description
+    var tdDesc = document.createElement('td');
+    tdDesc.style.cssText = 'max-width:180px;font-size:13px;';
+    tdDesc.textContent = s.description || '—';
+    tr.appendChild(tdDesc);
+
+    // Carrier
+    var tdCarrier = document.createElement('td');
+    var carrierBadge = document.createElement('span');
+    carrierBadge.style.cssText = 'background:#1a1a2a;color:var(--blue);border:1px solid #2d2d4a;padding:2px 8px;font-size:10px;letter-spacing:1px;font-weight:700;';
+    carrierBadge.textContent = CARRIER_LABELS[s.carrier] || s.carrier || '—';
+    tdCarrier.appendChild(carrierBadge);
+    tr.appendChild(tdCarrier);
+
+    // Tracking number
+    var tdTracking = document.createElement('td');
+    if (s.tracking_number) {
+      var code = document.createElement('code');
+      code.style.cssText = 'color:var(--text);font-size:11px;background:var(--surface);padding:2px 6px;border:1px solid var(--border);';
+      code.textContent = s.tracking_number;
+      tdTracking.appendChild(code);
+    } else {
+      tdTracking.style.color = 'var(--muted)';
+      tdTracking.textContent = '—';
+    }
+    tr.appendChild(tdTracking);
+
+    // Status
+    var tdStatus = document.createElement('td');
+    var statusBadge = document.createElement('span');
+    var statusKey = s.status || 'shipped';
+    statusBadge.style.cssText = 'background:' + (STATUS_BG[statusKey] || '#1a1a1a') + ';color:' + (STATUS_COLORS[statusKey] || '#888') + ';padding:3px 10px;font-size:10px;letter-spacing:1px;font-weight:700;text-transform:uppercase;';
+    statusBadge.textContent = STATUS_LABELS[statusKey] || statusKey;
+    tdStatus.appendChild(statusBadge);
+    tr.appendChild(tdStatus);
+
+    // Date
+    var tdDate = document.createElement('td');
+    tdDate.style.cssText = 'font-size:11px;color:var(--muted);';
+    if (s.updated_at) {
+      tdDate.textContent = new Date(s.updated_at).toLocaleDateString();
+    } else {
+      tdDate.textContent = '—';
+    }
+    tr.appendChild(tdDate);
+
+    // Actions
+    var tdActions = document.createElement('td');
+    var actWrap = document.createElement('div');
+    actWrap.className = 'actions-col';
+
+    var delBtn = document.createElement('button');
+    delBtn.className = 'btn-danger btn-sm';
+    delBtn.textContent = 'Delete';
+    (function(sid) {
+      delBtn.onclick = function() { deleteAdminShipment(sid); };
+    })(s.id);
+    actWrap.appendChild(delBtn);
+    tdActions.appendChild(actWrap);
+    tr.appendChild(tdActions);
+
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  wrap.innerHTML = '';
+  wrap.appendChild(table);
+}
+
+async function adminAddShipment() {
+  var userId = document.getElementById('sh-user-id').value;
+  var description = document.getElementById('sh-description').value.trim();
+  var carrier = document.getElementById('sh-carrier').value;
+  var tracking = document.getElementById('sh-tracking').value.trim();
+  var notes = document.getElementById('sh-notes').value.trim();
+
+  if (!userId) { showToast('Please select a member first.', 'error'); return; }
+  if (!tracking) { showToast('Tracking number is required.', 'error'); return; }
+
+  try {
+    var res = await fetch('/api/shipments/admin/add', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        admin_key: ADMIN_KEY,
+        user_id: userId,
+        description: description || null,
+        carrier: carrier,
+        tracking_number: tracking,
+        notes: notes || null
+      })
+    });
+    var data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Failed to add shipment.', 'error'); return; }
+    showToast('Tracking assigned! Member can see it on their account.', 'success');
+    clearCustomerSelection('sh');
+    document.getElementById('sh-description').value = '';
+    document.getElementById('sh-tracking').value = '';
+    document.getElementById('sh-notes').value = '';
+    document.getElementById('sh-carrier').value = 'usps';
+    loadAdminShipments();
+  } catch(e) { showToast('Failed to add shipment.', 'error'); }
+}
+
+async function deleteAdminShipment(id) {
+  if (!confirm('Delete this shipment? The member will no longer see it.')) return;
+  try {
+    var res = await fetch('/api/shipments/' + id, {
+      method: 'DELETE',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({admin_key: ADMIN_KEY})
+    });
+    if (res.ok) { showToast('Shipment deleted.', 'success'); loadAdminShipments(); }
+    else { showToast('Failed to delete.', 'error'); }
+  } catch(e) { showToast('Failed.', 'error'); }
+}
+
 // ── AUTH ──
 function unlock() {
   var key = document.getElementById('admin-key-input').value.trim();
@@ -863,6 +1133,7 @@ function switchTab(name, el) {
   if (name === 'shop') loadShop();
   if (name === 'psa') { loadPSA(); if (!allCustomers.length) loadCustomers(); }
   if (name === 'coupons') loadCoupons();
+  if (name === 'shipments') { loadAdminShipments(); if (!allCustomers.length) loadCustomers(); }
 }
 
 // ── BREAKS ──
@@ -974,15 +1245,6 @@ async function addBreak() {
   if (!name||!date) { showToast('Name and date required.', 'error'); return; }
   if (breakType !== 'pick_team' && !price) { showToast('Price is required.', 'error'); return; }
   if (breakType==='random_team' && !randomSpots) { showToast('Please enter number of spots for random break.', 'error'); return; }
-  if (breakType==='pick_team') {
-    var teams = sport==='baseball'?MLB_TEAMS:sport==='football'?NFL_TEAMS:NBA_TEAMS;
-    var hasPrices = teams.some(function(t) {
-      var id = 'team-price-' + t.replace(/\s+/g,'-').replace(/[^a-zA-Z0-9-]/g,'');
-      var el = document.getElementById(id);
-      return el && parseFloat(el.value) > 0;
-    });
-    if (!hasPrices && !price) { showToast('Please set at least a base price or individual team prices.', 'error'); return; }
-  }
   var slots = getSlotsForBreak(breakType, sport, randomSpots);
   var totalSpots = slots.length;
   showToast('Adding break...', 'info');
@@ -1321,13 +1583,11 @@ function renderPSATable(data) {
   data.forEach(function(s) {
     var tr = document.createElement('tr');
 
-    // Card name
     var tdCard = document.createElement('td');
     tdCard.style.cssText = 'max-width:160px;font-weight:500;';
     tdCard.textContent = s.card_name;
     tr.appendChild(tdCard);
 
-    // Ref
     var tdRef = document.createElement('td');
     var code = document.createElement('code');
     code.style.cssText = 'color:var(--red-bright);font-size:12px;';
@@ -1335,7 +1595,6 @@ function renderPSATable(data) {
     tdRef.appendChild(code);
     tr.appendChild(tdRef);
 
-    // Customer
     var tdCustomer = document.createElement('td');
     tdCustomer.style.cssText = 'font-size:12px;max-width:130px;';
     if (s.customer_name || s.customer_email) {
@@ -1353,7 +1612,6 @@ function renderPSATable(data) {
     }
     tr.appendChild(tdCustomer);
 
-    // Service level
     var tdService = document.createElement('td');
     tdService.style.cssText = 'font-size:12px;';
     if (s.service_level) {
@@ -1367,13 +1625,11 @@ function renderPSATable(data) {
     }
     tr.appendChild(tdService);
 
-    // Date
     var tdDate = document.createElement('td');
     tdDate.style.cssText = 'font-size:12px;color:var(--muted);';
     tdDate.textContent = s.submitted_date || '—';
     tr.appendChild(tdDate);
 
-    // Status (inline change still supported)
     var tdStatus = document.createElement('td');
     var statusSel = document.createElement('select');
     statusSel.style.cssText = 'background:' + (statusBgs[s.status]||'#1a1a1a') + ';border:1px solid ' + (statusBorders[s.status]||'#333') + ';color:' + (statusColors[s.status]||'var(--muted)') + ';padding:4px 8px;font-family:sans-serif;font-size:11px;outline:none;';
@@ -1390,7 +1646,6 @@ function renderPSATable(data) {
     tdStatus.appendChild(statusSel);
     tr.appendChild(tdStatus);
 
-    // Grade (inline edit still supported)
     var tdGrade = document.createElement('td');
     var gradeInput = document.createElement('input');
     gradeInput.type = 'text';
@@ -1403,7 +1658,6 @@ function renderPSATable(data) {
     tdGrade.appendChild(gradeInput);
     tr.appendChild(tdGrade);
 
-    // Actions
     var tdActions = document.createElement('td');
     var actionsWrap = document.createElement('div');
     actionsWrap.className = 'actions-col';
@@ -1438,7 +1692,6 @@ function renderPSATable(data) {
 function openPSAEdit(ref) {
   var s = allPSA.find(function(x){return x.submission_ref===ref;});
   if (!s) return;
-
   document.getElementById('edit-psa-ref').value = s.submission_ref;
   document.getElementById('edit-p-card').value = s.card_name || '';
   document.getElementById('edit-p-ref').value = s.submission_ref || '';
@@ -1447,8 +1700,6 @@ function openPSAEdit(ref) {
   document.getElementById('edit-p-status').value = s.status || 'order_arrived';
   document.getElementById('edit-p-grade').value = s.grade || '';
   document.getElementById('edit-p-notes').value = s.notes || '';
-
-  // Pre-fill customer
   clearCustomerSelection('edit-p');
   if (s.customer_name || s.customer_email) {
     var displayName = (s.customer_name || '') + (s.customer_email ? ' — ' + s.customer_email : '');
@@ -1456,12 +1707,8 @@ function openPSAEdit(ref) {
     document.getElementById('edit-p-user-id').value = s.user_id || '';
     document.getElementById('edit-p-customer-email').value = s.customer_email || '';
     var badge = document.getElementById('edit-p-customer-badge');
-    if (badge) {
-      badge.textContent = 'Current: ' + (s.customer_name || s.customer_email);
-      badge.style.display = 'block';
-    }
+    if (badge) { badge.textContent = 'Current: ' + (s.customer_name || s.customer_email); badge.style.display = 'block'; }
   }
-
   document.getElementById('edit-psa-modal').classList.add('open');
 }
 
@@ -1476,23 +1723,8 @@ async function savePSAEdit() {
   var notes = document.getElementById('edit-p-notes').value.trim();
   var userId = document.getElementById('edit-p-user-id').value;
   var email = document.getElementById('edit-p-customer-email').value;
-
   if (!card || !newRef) { showToast('Card name and ref are required.', 'error'); return; }
-
-  var body = {
-    original_ref: originalRef,
-    submission_ref: newRef,
-    card_name: card,
-    submitted_date: date || null,
-    service_level: serviceLevel || null,
-    status: status,
-    grade: grade || null,
-    notes: notes || null,
-    user_id: userId || null,
-    customer_email: email || null,
-    admin_key: ADMIN_KEY
-  };
-
+  var body = { original_ref: originalRef, submission_ref: newRef, card_name: card, submitted_date: date || null, service_level: serviceLevel || null, status: status, grade: grade || null, notes: notes || null, user_id: userId || null, customer_email: email || null, admin_key: ADMIN_KEY };
   try {
     var res = await fetch('/api/psa/admin/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
     var data = await res.json();
@@ -1513,25 +1745,9 @@ async function addPSA() {
   var notes = document.getElementById('p-notes').value.trim();
   var userId = document.getElementById('p-user-id').value;
   var email = document.getElementById('p-customer-email').value;
-
   if (!card||!ref) { showToast('Card name and submission ref required.', 'error'); return; }
-
   try {
-    var res = await fetch('/api/psa/admin/add', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        submission_ref: ref,
-        card_name: card,
-        submitted_date: date||null,
-        service_level: serviceLevel||null,
-        status, grade: grade||null,
-        notes: notes||null,
-        user_id: userId||null,
-        customer_email: email||null,
-        admin_key: ADMIN_KEY
-      })
-    });
+    var res = await fetch('/api/psa/admin/add', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ submission_ref: ref, card_name: card, submitted_date: date||null, service_level: serviceLevel||null, status, grade: grade||null, notes: notes||null, user_id: userId||null, customer_email: email||null, admin_key: ADMIN_KEY }) });
     var data = await res.json();
     if (!res.ok) { showToast(data.error||'Failed.', 'error'); return; }
     showToast('Submission added!', 'success');
@@ -1545,11 +1761,7 @@ async function addPSA() {
 async function updatePSAStatus(ref, status) {
   try {
     var res = await fetch('/api/psa/admin/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({submission_ref:ref, original_ref:ref, status, admin_key:ADMIN_KEY}) });
-    if (res.ok) {
-      showToast('Status updated!', 'success');
-      allPSA = allPSA.map(function(s){if(s.submission_ref===ref)s.status=status;return s;});
-      updatePSAStats(allPSA);
-    }
+    if (res.ok) { showToast('Status updated!', 'success'); allPSA = allPSA.map(function(s){if(s.submission_ref===ref)s.status=status;return s;}); updatePSAStats(allPSA); }
   } catch(e) {}
 }
 
@@ -1578,11 +1790,7 @@ function closeEditModal(type) {
 async function assignRandomTeams(breakId, sport) {
   if (!confirm('Randomly assign teams to all spots? This cannot be undone.')) return;
   try {
-    var res = await fetch('/api/breaks/' + breakId + '/slots/assign-random', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ sport: sport, admin_key: ADMIN_KEY })
-    });
+    var res = await fetch('/api/breaks/' + breakId + '/slots/assign-random', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ sport: sport, admin_key: ADMIN_KEY }) });
     var data = await res.json();
     if (!res.ok) { showToast(data.error || 'Failed.', 'error'); return; }
     showToast('Teams assigned!', 'success');
@@ -1610,6 +1818,12 @@ function showToast(msg, type) {
   document.body.appendChild(t);
   setTimeout(function(){if(t.parentElement)t.remove();}, 3500);
 }
+
+window.adminAddShipment = adminAddShipment;
+window.deleteAdminShipment = deleteAdminShipment;
+window.loadAdminShipments = loadAdminShipments;
+window.filterShipments = filterShipments;
+window.setShipmentsFilter = setShipmentsFilter;
 </script>
 </body>
 </html>
