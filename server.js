@@ -1823,85 +1823,12 @@ app.post('/api/shipments/refresh/:user_id', async (req, res) => {
 ;
 
 
-app.get('/api/debug-prices', async (req, res) => {
-  const results = {};
-
-  // Check env vars are present
-  results.env = {
-    JUSTTCG_API_KEY: !!process.env.JUSTTCG_API_KEY,
-    EBAY_APP_ID: !!process.env.EBAY_APP_ID,
-    EBAY_CERT_ID: !!process.env.EBAY_CERT_ID
-  };
-
-  // Test 1: JustTCG no set filter (broad search)
-  try {
-    const r1 = await fetch('https://api.justtcg.com/v1/cards?q=Charizard&game=pokemon&limit=2', {
-      headers: { 'x-api-key': process.env.JUSTTCG_API_KEY }
-    });
-    const d1 = await r1.json();
-    const cards = d1.data || d1.cards || [];
-    results.justtcg_broad = {
-      status: r1.status,
-      count: cards.length,
-      first: cards[0] ? { name: cards[0].name, set: cards[0].set || cards[0].setName, variants: cards[0].variants ? cards[0].variants.length : 0, price: cards[0].marketPrice || (cards[0].variants && cards[0].variants[0] && cards[0].variants[0].marketPrice) } : null
-    };
-  } catch(e) { results.justtcg_broad = { error: e.message }; }
-
-  // Test 2: JustTCG with set — try "Obsidian Flames" vs "sv03"
-  try {
-    const r2 = await fetch('https://api.justtcg.com/v1/sets?game=pokemon&q=Obsidian&limit=3', {
-      headers: { 'x-api-key': process.env.JUSTTCG_API_KEY }
-    });
-    const d2 = await r2.json();
-    const sets = d2.data || d2.sets || [];
-    results.justtcg_sets = { status: r2.status, sets: sets.map(s => ({ id: s.id, name: s.name })) };
-  } catch(e) { results.justtcg_sets = { error: e.message }; }
-
-  // Test 3: eBay Finding API — test raw URL to see exact error
-  try {
-    const creds = Buffer.from(`${process.env.EBAY_APP_ID}:${process.env.EBAY_CERT_ID}`).toString('base64');
-    const tr = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
-      method: 'POST',
-      headers: { 'Authorization': `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope'
-    });
-    const td = await tr.json();
-    if (td.access_token) {
-      const q = encodeURIComponent('Shohei Ohtani 2018 Topps PSA 10');
-      const url = `https://api.ebay.com/buy/browse/v1/item_summary/search?q=${q}&category_ids=212&limit=3&sort=price`;
-      const r3 = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${td.access_token}`, 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US' }
-      });
-      const d3 = await r3.json();
-      const items = d3.itemSummaries || [];
-      results.ebay_browse = { status: r3.status, count: items.length, sample: items[0] ? { title: items[0].title, price: items[0].price } : null };
-    }
-  } catch(e) { results.ebay_browse = { error: e.message }; }
-
-  res.json(results);
-});
+;
 
 
 
 // ─── TEMP: TCG debug ───
-app.get('/api/debug-tcg', async (req, res) => {
-  const name = req.query.name || 'Venusaur ex';
-  const setName = req.query.set || 'SV: 151';
-  const gameId = 'pokemon';
-  const q = encodeURIComponent(name);
-  const url = `https://api.justtcg.com/v1/cards?q=${q}&game=${gameId}&limit=10`;
-  try {
-    const r = await fetch(url, { headers: { 'x-api-key': process.env.JUSTTCG_API_KEY } });
-    const data = await r.json();
-    const cards = data.data || data.cards || [];
-    const cardSets = cards.map(c => ({ name: c.name, set: c.set, variants: c.variants ? c.variants.length : 0, samplePrice: c.variants && c.variants[0] ? c.variants[0].marketPrice : null }));
-    const cleanSet = setName.replace(/^(SV|XY|BW|DP|HGSS|RS|EX|E|NEO|GYM|B2|B)[\s:]+/i, '').trim();
-    const setSlug = cleanSet.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-    const fullSlug = setName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-    const matched = cards.find(c => { const cs = (c.set||'').toLowerCase(); return cs.includes(setSlug) || cs.includes(fullSlug); });
-    res.json({ status: r.status, total: cards.length, setSlug, fullSlug, matched: matched ? matched.name + ' / ' + matched.set : 'NONE', cardSets });
-  } catch(e) { res.json({ error: e.message }); }
-});
+;
 
 async function fetchTCGPrice(name, setName, cardNumber, game) {
   try {
