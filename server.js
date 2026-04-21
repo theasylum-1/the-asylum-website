@@ -1898,8 +1898,15 @@ async function fetchTCGPrice(name, setName, game) {
     // Try set slug match first, then exact name, then first result
     let card = null;
     if (setName) {
-      const setSlug = setName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      card = cards.find(c => (c.set || '').toLowerCase().includes(setSlug));
+      // Strip common TCG set prefixes: "SV: 151" → "151", "XY: Evolutions" → "Evolutions"
+      const cleanSet = setName.replace(/^(SV|XY|BW|DP|HGSS|RS|EX|E|NEO|GYM|B2|B)[\s:]+/i, '').trim();
+      const setSlug = cleanSet.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      // Also try the full name slugified
+      const fullSlug = setName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      card = cards.find(c => {
+        const cardSet = (c.set || '').toLowerCase();
+        return cardSet.includes(setSlug) || cardSet.includes(fullSlug);
+      });
     }
     if (!card) card = cards.find(c => (c.name || '').toLowerCase() === name.toLowerCase()) || cards[0];
     if (!card) return null;
