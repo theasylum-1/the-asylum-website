@@ -1102,6 +1102,7 @@ async function confirmImport() {
     var isSports = category === 'sports_card';
 
     var body = {
+      user_id: currentUser.id,
       category: catMap[category] || 'tcg_card',
       brand: val('brand') || null,
       set_name: val('set') || null,
@@ -1125,13 +1126,9 @@ async function confirmImport() {
     }
 
     try {
-      var token = currentSession && currentSession.access_token;
-      var res = await fetch('/api/vault/items', {
+      var res = await fetch('/api/collection', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? 'Bearer ' + token : ''
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
       if (res.ok) {
