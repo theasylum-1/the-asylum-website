@@ -1832,18 +1832,24 @@ app.post('/api/shipments/refresh/:user_id', async (req, res) => {
 
 async function fetchTCGPrice(name, setName, cardNumber, game) {
   try {
-    // Match the bot's game ID mapping exactly
     const sport = (game || '').toLowerCase();
     let gameId = 'pokemon';
     if (sport.includes('one piece') || sport.includes('onepiece') || sport.includes('one-piece')) {
       gameId = 'one-piece-card-game';
     }
 
-    // Bot strategy: search by name + card number first (most precise), then name + set, then name alone
+    // Clean card name — strip parenthetical notes like (Reprint), (Alternate Art), (Cosmo Holo)
+    const cleanName = (name || '').replace(/\s*\([^)]*\)\s*/g, '').trim();
+
+    // Detect bad/generic set names from imports that won't match anything
+    const badSets = ['ascended heroes', 'miscellaneous cards & products', 'miscellaneous', 'promo', 'unknown'];
+    const setIsUsable = setName && !badSets.some(b => (setName || '').toLowerCase().includes(b));
+
+    // Search strategies: card number first (most precise), then name+set, then name alone
     const searches = [];
-    if (name && cardNumber) searches.push({ q: name, number: cardNumber });
-    if (name && setName)    searches.push({ q: `${name} ${setName}` });
-    if (name)               searches.push({ q: name });
+    if (cleanName && cardNumber) searches.push({ q: cleanName, number: cardNumber });
+    if (cleanName && setIsUsable) searches.push({ q: `${cleanName} ${setName}` });
+    if (cleanName)               searches.push({ q: cleanName });
 
     for (const params of searches) {
       const qs = new URLSearchParams({ q: params.q, game: gameId, limit: '10', include_statistics: '7d' });
@@ -1859,16 +1865,16 @@ async function fetchTCGPrice(name, setName, cardNumber, game) {
       // Find best match — prefer card number match, then exact name
       let card = null;
       if (cardNumber) {
-        const cn = cardNumber.toLowerCase().trim();
-        card = cards.find(c => (c.number || '').toLowerCase().trim() === cn);
+        const cn = cardNumber.toLowerCase().replace(/^0+/, '').trim();
+        card = cards.find(c => (c.number || '').toLowerCase().replace(/^0+/, '').trim() === cn);
       }
-      if (!card) card = cards.find(c => (c.name || '').toLowerCase() === name.toLowerCase());
+      if (!card) card = cards.find(c => (c.name || '').toLowerCase() === cleanName.toLowerCase());
       if (!card) card = cards[0];
 
       const variants = card.variants || [];
       if (!variants.length) continue;
 
-      // Bot logic: prefer Near Mint Normal variant, then take NM median
+      // Prefer Near Mint Normal, fall back to first variant
       const nmVariant = variants.find(v =>
         (v.condition || '').toLowerCase().includes('near mint') &&
         (v.printing || '').toLowerCase().includes('normal')
@@ -1903,11 +1909,21 @@ async function fetchSportsPrice(playerName, setName, parallel, gradeCompany, gra
     const token = tokenData.access_token;
     if (!token) return null;
 
-    // Build query matching the bot exactly
+    // Build query — sports cards need concise queries for eBay
+    // Strip verbose Collectr set names down to just the core product name
+    const cleanSet = (setName || '')
+      .replace(/Topps Chrome /i, 'Topps Chrome ')  // keep brand
+      .replace(/Bowman Chrome /i, 'Bowman Chrome ')
+      .replace(/ Autographs?$/i, '')               // strip trailing "Autographs"
+      .replace(/ Autograph$/i, '')
+      .replace(/Us Olympic And Paralympic Hopefuls? /i, 'Olympic ')
+      .replace(/Rookie Autograph$/i, 'RC Auto')
+      .trim();
+
     const parts = [
       playerName,
-      setName,
-      parallel,
+      cleanSet || null,
+      parallel && parallel.length < 30 ? parallel : null,  // skip overly long parallel names
       gradeCompany && grade ? `${gradeCompany} ${grade}` : null
     ].filter(Boolean);
     const query = parts.join(' ');
