@@ -1820,31 +1820,7 @@ app.post('/api/shipments/refresh/:user_id', async (req, res) => {
 
 
 // Targeted TCG debug
-app.get('/api/debug-tcg', async (req, res) => {
-  const name = req.query.name || 'Venusaur ex';
-  const setName = req.query.set || 'SV: 151';
-  const game = req.query.game || 'pokemon';
-  try {
-    const q = encodeURIComponent(name);
-    const url = `https://api.justtcg.com/v1/cards?q=${q}&game=${game}&limit=10`;
-    const r = await fetch(url, { headers: { 'x-api-key': process.env.JUSTTCG_API_KEY } });
-    const data = await r.json();
-    const cards = data.data || data.cards || [];
-    const cleanSet = setName.replace(/^(SV|XY|BW|DP|HGSS|RS|EX|E|NEO|GYM|B2|B)[\s:]+/i, '').trim();
-    const setSlug = cleanSet.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-    res.json({
-      query: { name, setName, cleanSet, setSlug },
-      totalCards: cards.length,
-      cards: cards.map(c => ({
-        name: c.name,
-        set: c.set,
-        setMatches: (c.set || '').toLowerCase().includes(setSlug),
-        variantCount: c.variants ? c.variants.length : 0,
-        samplePrice: c.variants && c.variants[0] ? c.variants[0].marketPrice : c.marketPrice
-      }))
-    });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
+;
 
 
 app.get('/api/debug-prices', async (req, res) => {
@@ -1907,52 +1883,88 @@ app.get('/api/debug-prices', async (req, res) => {
 
 
 
-async function fetchTCGPrice(name, setName, game) {
+// ─── TEMP: TCG debug ───
+app.get('/api/debug-tcg', async (req, res) => {
+  const name = req.query.name || 'Venusaur ex';
+  const setName = req.query.set || 'SV: 151';
+  const gameId = 'pokemon';
+  const q = encodeURIComponent(name);
+  const url = `https://api.justtcg.com/v1/cards?q=${q}&game=${gameId}&limit=10`;
   try {
-    const gameId = (game || '').toLowerCase().includes('one piece') ? 'onepiece' : 'pokemon';
-    const q = encodeURIComponent(name);
-    // Search by name only — convert set name to slug for matching client-side
-    const url = `https://api.justtcg.com/v1/cards?q=${q}&game=${gameId}&limit=10`;
-    const res = await fetch(url, {
-      headers: { 'x-api-key': process.env.JUSTTCG_API_KEY }
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const cards = data.data || data.cards || data.results || [];
-    if (!cards.length) return null;
-    // Try set slug match first, then exact name, then first result
-    let card = null;
-    if (setName) {
-      // Strip common TCG set prefixes: "SV: 151" → "151", "XY: Evolutions" → "Evolutions"
-      const cleanSet = setName.replace(/^(SV|XY|BW|DP|HGSS|RS|EX|E|NEO|GYM|B2|B)[\s:]+/i, '').trim();
-      const setSlug = cleanSet.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-      // Also try the full name slugified
-      const fullSlug = setName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-      card = cards.find(c => {
-        const cardSet = (c.set || '').toLowerCase();
-        return cardSet.includes(setSlug) || cardSet.includes(fullSlug);
-      });
+    const r = await fetch(url, { headers: { 'x-api-key': process.env.JUSTTCG_API_KEY } });
+    const data = await r.json();
+    const cards = data.data || data.cards || [];
+    const cardSets = cards.map(c => ({ name: c.name, set: c.set, variants: c.variants ? c.variants.length : 0, samplePrice: c.variants && c.variants[0] ? c.variants[0].marketPrice : null }));
+    const cleanSet = setName.replace(/^(SV|XY|BW|DP|HGSS|RS|EX|E|NEO|GYM|B2|B)[\s:]+/i, '').trim();
+    const setSlug = cleanSet.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    const fullSlug = setName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    const matched = cards.find(c => { const cs = (c.set||'').toLowerCase(); return cs.includes(setSlug) || cs.includes(fullSlug); });
+    res.json({ status: r.status, total: cards.length, setSlug, fullSlug, matched: matched ? matched.name + ' / ' + matched.set : 'NONE', cardSets });
+  } catch(e) { res.json({ error: e.message }); }
+});
+
+async function fetchTCGPrice(name, setName, cardNumber, game) {
+  try {
+    // Match the bot's game ID mapping exactly
+    const sport = (game || '').toLowerCase();
+    let gameId = 'pokemon';
+    if (sport.includes('one piece') || sport.includes('onepiece') || sport.includes('one-piece')) {
+      gameId = 'one-piece-card-game';
     }
-    if (!card) card = cards.find(c => (c.name || '').toLowerCase() === name.toLowerCase()) || cards[0];
-    if (!card) return null;
-    // Median price across variants
-    let price = null;
-    if (card.variants && card.variants.length) {
-      const prices = card.variants
-        .map(v => parseFloat(v.marketPrice || v.market_price || 0))
+
+    // Bot strategy: search by name + card number first (most precise), then name + set, then name alone
+    const searches = [];
+    if (name && cardNumber) searches.push({ q: name, number: cardNumber });
+    if (name && setName)    searches.push({ q: `${name} ${setName}` });
+    if (name)               searches.push({ q: name });
+
+    for (const params of searches) {
+      const qs = new URLSearchParams({ q: params.q, game: gameId, limit: '10', include_statistics: '7d' });
+      if (params.number) qs.set('number', params.number);
+      const res = await fetch(`https://api.justtcg.com/v1/cards?${qs}`, {
+        headers: { 'x-api-key': process.env.JUSTTCG_API_KEY }
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const cards = data.data || [];
+      if (!cards.length) continue;
+
+      // Find best match — prefer card number match, then exact name
+      let card = null;
+      if (cardNumber) {
+        const cn = cardNumber.toLowerCase().trim();
+        card = cards.find(c => (c.number || '').toLowerCase().trim() === cn);
+      }
+      if (!card) card = cards.find(c => (c.name || '').toLowerCase() === name.toLowerCase());
+      if (!card) card = cards[0];
+
+      const variants = card.variants || [];
+      if (!variants.length) continue;
+
+      // Bot logic: prefer Near Mint Normal variant, then take NM median
+      const nmVariant = variants.find(v =>
+        (v.condition || '').toLowerCase().includes('near mint') &&
+        (v.printing || '').toLowerCase().includes('normal')
+      ) || variants[0];
+
+      const nmPrices = variants
+        .filter(v => (v.condition || '').toLowerCase().includes('near mint') && v.price)
+        .map(v => parseFloat(v.price))
         .filter(p => p > 0)
         .sort((a, b) => a - b);
-      if (prices.length) price = prices[Math.floor(prices.length / 2)];
+
+      const price = nmVariant.price ||
+        (nmPrices.length ? nmPrices[Math.floor(nmPrices.length / 2)] : null);
+
+      if (price) return parseFloat(price);
     }
-    if (!price) price = card.marketPrice || card.market_price ||
-      (card.prices && (card.prices.market || card.prices.mid)) || null;
-    return price ? parseFloat(price) : null;
+    return null;
   } catch (e) { return null; }
 }
 
 async function fetchSportsPrice(playerName, setName, parallel, gradeCompany, grade) {
   try {
-    // Get eBay OAuth token (Browse API — no rate limit issues)
+    // Get eBay OAuth token (cached per request — could cache globally but fine for now)
     const creds = Buffer.from(`${process.env.EBAY_APP_ID}:${process.env.EBAY_CERT_ID}`).toString('base64');
     const tokenRes = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
       method: 'POST',
@@ -1963,21 +1975,43 @@ async function fetchSportsPrice(playerName, setName, parallel, gradeCompany, gra
     const tokenData = await tokenRes.json();
     const token = tokenData.access_token;
     if (!token) return null;
-    // Build search query
-    const parts = [playerName, setName, parallel, gradeCompany && grade ? `${gradeCompany} ${grade}` : null].filter(Boolean);
-    const query = encodeURIComponent(parts.join(' '));
-    // eBay Browse API — trading cards category 212
-    const url = `https://api.ebay.com/buy/browse/v1/item_summary/search?q=${query}&category_ids=212&limit=10&sort=price`;
-    const browseRes = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US' }
+
+    // Build query matching the bot exactly
+    const parts = [
+      playerName,
+      setName,
+      parallel,
+      gradeCompany && grade ? `${gradeCompany} ${grade}` : null
+    ].filter(Boolean);
+    const query = parts.join(' ');
+
+    // Bot uses filter param with soldItemsOnly:true — not a separate endpoint
+    const params = new URLSearchParams({
+      q: query,
+      filter: 'buyingOptions:{FIXED_PRICE},conditions:{USED|LIKE_NEW|VERY_GOOD|GOOD|ACCEPTABLE},soldItemsOnly:true',
+      sort: 'endingSoonest',
+      limit: '5'
+    });
+
+    const browseRes = await fetch(`https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US',
+        'Content-Type': 'application/json'
+      }
     });
     if (!browseRes.ok) return null;
     const browseData = await browseRes.json();
     const items = browseData.itemSummaries || [];
     if (!items.length) return null;
-    const prices = items.map(i => parseFloat(i?.price?.value || 0)).filter(p => p > 0).sort((a, b) => a - b);
+
+    // Average sold prices (bot uses avg, not median for sports)
+    const prices = items
+      .map(i => parseFloat(i?.price?.value || 0))
+      .filter(p => p > 0);
     if (!prices.length) return null;
-    return parseFloat(prices[Math.floor(prices.length / 2)].toFixed(2));
+    const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+    return parseFloat(avg.toFixed(2));
   } catch (e) { return null; }
 }
 
@@ -1994,7 +2028,7 @@ app.post('/api/collection/:id/refresh-price', async (req, res) => {
 
     let newPrice = null;
     if (item.category === 'tcg_card' || item.category === 'sealed_tcg') {
-      newPrice = await fetchTCGPrice(item.player_character || item.product_name, item.set_name, item.brand);
+      newPrice = await fetchTCGPrice(item.player_character || item.product_name, item.set_name, item.card_number, item.brand);
     } else if (item.category === 'sports_card') {
       newPrice = await fetchSportsPrice(item.player_character, item.set_name, item.parallel, item.grade_company, item.grade);
     }
@@ -2040,7 +2074,7 @@ app.get('/api/cron/update-prices', async (req, res) => {
       let newPrice = null;
       try {
         if (item.category === 'tcg_card' || item.category === 'sealed_tcg') {
-          newPrice = await fetchTCGPrice(item.player_character || item.product_name, item.set_name, item.brand);
+          newPrice = await fetchTCGPrice(item.player_character || item.product_name, item.set_name, item.card_number, item.brand);
           // Small delay to avoid rate limiting
           await new Promise(r => setTimeout(r, 200));
         } else if (item.category === 'sports_card') {
