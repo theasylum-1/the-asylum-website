@@ -36,6 +36,11 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Public portfolio share page — no auth required
+app.get('/vault/share/:token', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'vault-share.html'));
+});
+
 // Raw body needed for Stripe webhooks
 app.use('/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
@@ -1811,6 +1816,266 @@ app.post('/api/shipments/refresh/:user_id', async (req, res) => {
     console.error('Refresh tracking error:', err);
     res.status(500).json({ error: 'Failed to refresh tracking.' });
   }
+});
+
+
+// ─────────────────────────────────────────
+// PRICE UPDATES — JustTCG (TCG cards)
+// ─────────────────────────────────────────
+
+async function fetchTCGPrice(name, setName, game) {
+  try {
+    const gameId = (game || '').toLowerCase().includes('one piece') ? 'onepiece' : 'pokemon';
+    const q = encodeURIComponent(name);
+    const setParam = setName ? '&set=' + encodeURIComponent(setName) : '';
+    const url = `https://api.justtcg.com/v1/cards?q=${q}${setParam}&game=${gameId}&limit=5`;
+    const res = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${process.env.JUSTTCG_API_KEY}` }
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const cards = data.cards || data.data || data.results || [];
+    if (!cards.length) return null;
+    // Find best match — prefer exact name match
+    const exact = cards.find(c => (c.name || '').toLowerCase() === name.toLowerCase());
+    const card = exact || cards[0];
+    // Pull market price from variants or top-level
+    const price = card.marketPrice || card.market_price ||
+      (card.variants && card.variants[0] && card.variants[0].marketPrice) ||
+      (card.prices && (card.prices.market || card.prices.mid)) || null;
+    return price ? parseFloat(price) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────
+// PRICE UPDATES — eBay Finding API (sports cards)
+// ─────────────────────────────────────────
+
+async function fetchEbayToken() {
+  const creds = Buffer.from(`${process.env.EBAY_APP_ID}:${process.env.EBAY_CERT_ID}`).toString('base64');
+  const res = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${creds}`,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: 'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope'
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.access_token || null;
+}
+
+async function fetchSportsPrice(playerName, setName, parallel, gradeCompany, grade) {
+  try {
+    const token = await fetchEbayToken();
+    if (!token) return null;
+
+    // Build search query: "Mike Trout 2011 Topps Update PSA 10"
+    const parts = [playerName, setName, parallel, gradeCompany && grade ? `${gradeCompany} ${grade}` : null].filter(Boolean);
+    const query = encodeURIComponent(parts.join(' '));
+
+    // eBay Finding API — findCompletedItems = sold listings
+    const url = `https://svcs.ebay.com/services/search/FindingService/v1?OPERATION-NAME=findCompletedItems&SERVICE-VERSION=1.0.0&SECURITY-APPNAME=${process.env.EBAY_APP_ID}&RESPONSE-DATA-FORMAT=JSON&REST-PAYLOAD&keywords=${query}&itemFilter(0).name=SoldItemsOnly&itemFilter(0).value=true&sortOrder=EndTimeSoonest&paginationInput.entriesPerPage=10&categoryId=213`;
+
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+
+    const items = (data?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item) || [];
+    if (!items.length) return null;
+
+    // Average the top sold prices
+    const prices = items
+      .map(i => parseFloat(i?.sellingStatus?.[0]?.currentPrice?.[0]?.['__value__'] || 0))
+      .filter(p => p > 0);
+    if (!prices.length) return null;
+    return parseFloat((prices.reduce((a, b) => a + b, 0) / prices.length).toFixed(2));
+  } catch (e) {
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────
+// PRICE UPDATE — single item endpoint
+// Called from frontend "Refresh" button
+// ─────────────────────────────────────────
+app.post('/api/collection/:id/refresh-price', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data: item, error: fetchErr } = await db.from('collection_items').select('*').eq('id', req.params.id).single();
+    if (fetchErr || !item) return res.status(404).json({ error: 'Item not found' });
+
+    let newPrice = null;
+    if (item.category === 'tcg_card' || item.category === 'sealed_tcg') {
+      newPrice = await fetchTCGPrice(item.player_character || item.product_name, item.set_name, item.brand);
+    } else if (item.category === 'sports_card') {
+      newPrice = await fetchSportsPrice(item.player_character, item.set_name, item.parallel, item.grade_company, item.grade);
+    }
+
+    if (newPrice === null) return res.json({ success: false, message: 'Could not find price data' });
+
+    const { data: updated } = await db.from('collection_items')
+      .update({ estimated_value: newPrice, value_updated_at: new Date().toISOString() })
+      .eq('id', req.params.id).select().single();
+
+    res.json({ success: true, price: newPrice, item: updated });
+  } catch (e) {
+    res.status(500).json({ error: 'Price refresh failed' });
+  }
+});
+
+// ─────────────────────────────────────────
+// PRICE UPDATE — bulk cron endpoint
+// Called by Vercel Cron every morning at 6am
+// ─────────────────────────────────────────
+app.get('/api/cron/update-prices', async (req, res) => {
+  // Verify cron secret so random people can't spam it
+  const secret = req.headers['x-cron-secret'];
+  if (secret !== process.env.CRON_SECRET) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+
+    // Get all items not updated in last 23 hours
+    const cutoff = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
+    const { data: items } = await db.from('collection_items')
+      .select('id, category, player_character, product_name, set_name, brand, parallel, grade_company, grade')
+      .in('category', ['tcg_card', 'sealed_tcg', 'sports_card'])
+      .or(`value_updated_at.is.null,value_updated_at.lt.${cutoff}`)
+      .limit(200); // Safety cap per run
+
+    if (!items || !items.length) return res.json({ success: true, updated: 0 });
+
+    let updated = 0, failed = 0;
+
+    for (const item of items) {
+      let newPrice = null;
+      try {
+        if (item.category === 'tcg_card' || item.category === 'sealed_tcg') {
+          newPrice = await fetchTCGPrice(item.player_character || item.product_name, item.set_name, item.brand);
+          // Small delay to avoid rate limiting
+          await new Promise(r => setTimeout(r, 200));
+        } else if (item.category === 'sports_card') {
+          newPrice = await fetchSportsPrice(item.player_character, item.set_name, item.parallel, item.grade_company, item.grade);
+          await new Promise(r => setTimeout(r, 300));
+        }
+      } catch (e) { /* skip */ }
+
+      if (newPrice !== null) {
+        await db.from('collection_items')
+          .update({ estimated_value: newPrice, value_updated_at: new Date().toISOString() })
+          .eq('id', item.id);
+        updated++;
+      } else {
+        failed++;
+      }
+    }
+
+    res.json({ success: true, updated, failed, total: items.length });
+  } catch (e) {
+    res.status(500).json({ error: 'Bulk price update failed', details: e.message });
+  }
+});
+
+// ─────────────────────────────────────────
+// PORTFOLIOS — CRUD
+// ─────────────────────────────────────────
+
+// Get user's portfolios
+app.get('/api/portfolios/:user_id', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data, error } = await db.from('portfolios')
+      .select('*, portfolio_items(count)')
+      .eq('user_id', req.params.user_id)
+      .order('created_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  } catch (e) { res.status(500).json({ error: 'Failed to load portfolios' }); }
+});
+
+// Create portfolio
+app.post('/api/portfolios', async (req, res) => {
+  const { user_id, name, description } = req.body;
+  if (!user_id || !name) return res.status(400).json({ error: 'user_id and name required' });
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const shareToken = Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
+    const { data, error } = await db.from('portfolios')
+      .insert({ user_id, name: name.trim(), description: description || null, share_token: shareToken })
+      .select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, portfolio: data });
+  } catch (e) { res.status(500).json({ error: 'Failed to create portfolio' }); }
+});
+
+// Delete portfolio
+app.delete('/api/portfolios/:id', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    await db.from('portfolio_items').delete().eq('portfolio_id', req.params.id);
+    await db.from('portfolios').delete().eq('id', req.params.id);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Failed to delete portfolio' }); }
+});
+
+// Get items in a portfolio
+app.get('/api/portfolios/:id/items', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data: links } = await db.from('portfolio_items').select('collection_item_id').eq('portfolio_id', req.params.id);
+    if (!links || !links.length) return res.json([]);
+    const ids = links.map(l => l.collection_item_id);
+    const { data: items } = await db.from('collection_items').select('*').in('id', ids);
+    res.json(items || []);
+  } catch (e) { res.status(500).json({ error: 'Failed to load portfolio items' }); }
+});
+
+// Add/remove item from portfolio
+app.post('/api/portfolios/:id/items', async (req, res) => {
+  const { collection_item_id, action } = req.body; // action: 'add' or 'remove'
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    if (action === 'remove') {
+      await db.from('portfolio_items').delete()
+        .eq('portfolio_id', req.params.id).eq('collection_item_id', collection_item_id);
+    } else {
+      await db.from('portfolio_items').upsert({ portfolio_id: req.params.id, collection_item_id });
+    }
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Failed to update portfolio' }); }
+});
+
+// ─────────────────────────────────────────
+// PORTFOLIO PUBLIC SHARE PAGE
+// GET /share/:token — returns portfolio + items (no auth required)
+// ─────────────────────────────────────────
+app.get('/api/portfolios/share/:token', async (req, res) => {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+    const { data: portfolio } = await db.from('portfolios').select('*').eq('share_token', req.params.token).single();
+    if (!portfolio) return res.status(404).json({ error: 'Portfolio not found' });
+    const { data: links } = await db.from('portfolio_items').select('collection_item_id').eq('portfolio_id', portfolio.id);
+    const ids = (links || []).map(l => l.collection_item_id);
+    const items = ids.length ? (await db.from('collection_items').select('*').in('id', ids)).data || [] : [];
+    // Strip user_id from response for privacy
+    const safeItems = items.map(function(i) {
+      const { user_id, ...rest } = i;
+      return rest;
+    });
+    res.json({ portfolio: { id: portfolio.id, name: portfolio.name, description: portfolio.description, created_at: portfolio.created_at }, items: safeItems });
+  } catch (e) { res.status(500).json({ error: 'Failed to load shared portfolio' }); }
 });
 
 // ─────────────────────────────────────────

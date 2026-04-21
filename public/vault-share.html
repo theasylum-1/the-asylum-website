@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Asylum — Collection Portfolio</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black:#0a0a0a; --deep:#111111; --surface:#1a1a1a; --card:#1f1f1f;
+    --border:#2a2a2a; --red:#c0392b; --red-bright:#e74c3c; --red-glow:#8b1a1a;
+    --text:#e8e0d8; --muted:#888; --gold:#f1c40f; --green:#4caf50;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--black); color:var(--text); font-family:'Barlow',sans-serif; font-size:15px; line-height:1.6; }
+
+  header { background:rgba(10,10,10,0.97); border-bottom:1px solid var(--border); padding:0 2rem; display:flex; align-items:center; justify-content:space-between; height:64px; }
+  .header-logo { font-family:'Bebas Neue',sans-serif; font-size:24px; letter-spacing:4px; color:var(--text); text-decoration:none; }
+  .header-badge { font-family:'Barlow Condensed',sans-serif; font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--muted); border:1px solid var(--border); padding:4px 10px; }
+
+  .hero { background:linear-gradient(160deg,#0a0a0a 0%,#1a0505 50%,#0a0a0a 100%); padding:2.5rem 2rem 2rem; border-bottom:1px solid var(--border); }
+  .portfolio-name { font-family:'Bebas Neue',sans-serif; font-size:48px; letter-spacing:4px; margin-bottom:0.25rem; }
+  .portfolio-desc { color:var(--muted); font-size:14px; margin-bottom:1.25rem; }
+  .stats-row { display:flex; gap:2rem; flex-wrap:wrap; }
+  .stat { text-align:center; }
+  .stat-val { font-family:'Bebas Neue',sans-serif; font-size:28px; letter-spacing:2px; color:var(--gold); }
+  .stat-label { font-family:'Barlow Condensed',sans-serif; font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--muted); }
+  .asylum-link { font-family:'Barlow Condensed',sans-serif; font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--red-bright); text-decoration:none; border:1px solid var(--red-glow); padding:6px 16px; transition:background 0.2s; }
+  .asylum-link:hover { background:var(--red-glow); }
+
+  .main { max-width:1100px; margin:0 auto; padding:2rem; }
+  .section-label { font-family:'Barlow Condensed',sans-serif; font-size:11px; letter-spacing:5px; text-transform:uppercase; color:var(--red-bright); margin-bottom:1.25rem; padding-bottom:0.5rem; border-bottom:1px solid var(--border); }
+
+  .collection-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .collection-table th { font-family:'Barlow Condensed',sans-serif; font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--muted); text-align:left; padding:0.6rem 1rem; border-bottom:1px solid var(--border); background:var(--deep); white-space:nowrap; }
+  .collection-table td { padding:0.85rem 1rem; border-bottom:1px solid var(--border); background:var(--card); vertical-align:top; }
+  .collection-table tr:hover td { background:var(--surface); }
+  .cat-badge { display:inline-block; font-family:'Barlow Condensed',sans-serif; font-size:10px; letter-spacing:2px; text-transform:uppercase; padding:2px 8px; border:1px solid var(--border); color:var(--muted); }
+  .cat-badge.sports_card { border-color:#e67e22; color:#e67e22; }
+  .cat-badge.tcg_card { border-color:#3498db; color:#3498db; }
+  .cat-badge.sealed_sports { border-color:#27ae60; color:#27ae60; }
+  .cat-badge.sealed_tcg { border-color:#9b59b6; color:#9b59b6; }
+  .gain { color:var(--green); font-weight:600; }
+  .loss { color:var(--red-bright); font-weight:600; }
+  .val { color:var(--gold); font-weight:600; }
+
+  .loading { text-align:center; padding:4rem; color:var(--muted); font-family:'Barlow Condensed',sans-serif; letter-spacing:3px; text-transform:uppercase; font-size:13px; }
+  .error-state { text-align:center; padding:4rem; }
+  .error-state h2 { font-family:'Bebas Neue',sans-serif; font-size:40px; letter-spacing:4px; margin-bottom:1rem; color:var(--red-bright); }
+
+  @media (max-width:768px) {
+    header { padding:0 1rem; }
+    .hero { padding:1.5rem 1rem; }
+    .portfolio-name { font-size:36px; }
+    .stats-row { gap:1.5rem; }
+    .main { padding:1rem; }
+    .collection-table th:nth-child(3), .collection-table td:nth-child(3),
+    .collection-table th:nth-child(5), .collection-table td:nth-child(5) { display:none; }
+    .collection-table { font-size:12px; }
+    .collection-table td, .collection-table th { padding:0.6rem 0.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="https://theasylumcollective.com" class="header-logo">THE ASYLUM</a>
+  <span class="header-badge">Shared Collection</span>
+</header>
+
+<div id="app">
+  <div class="loading">Loading portfolio...</div>
+</div>
+
+<script>
+var token = window.location.pathname.split('/').pop();
+
+async function loadShare() {
+  var app = document.getElementById('app');
+  try {
+    var res = await fetch('/api/portfolios/share/' + token);
+    if (!res.ok) throw new Error('not found');
+    var data = await res.json();
+    render(data.portfolio, data.items);
+  } catch(e) {
+    app.innerHTML = '<div class="error-state"><h2>Portfolio Not Found</h2><p style="color:var(--muted);">This link may have expired or been removed.</p><br><a href="https://theasylumcollective.com" style="color:var(--red-bright);">← Back to The Asylum</a></div>';
+  }
+}
+
+function fmtMoney(n) {
+  return '$' + parseFloat(n || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function catLabel(cat) {
+  return { sports_card:'Sports Card', tcg_card:'TCG Card', sealed_sports:'Sealed Sports', sealed_tcg:'Sealed TCG' }[cat] || cat;
+}
+
+function getItemName(item) {
+  if (item.player_character) return item.player_character;
+  if (item.product_name) return item.product_name;
+  return 'Unknown';
+}
+
+function getItemDetail(item) {
+  var p = [];
+  if (item.brand) p.push(item.brand);
+  if (item.set_name) p.push(item.set_name);
+  if (item.year) p.push(item.year);
+  if (item.card_number) p.push('#' + item.card_number);
+  if (item.parallel) p.push(item.parallel);
+  if (item.grade_company && item.grade) p.push(item.grade_company + ' ' + item.grade);
+  return p.join(' · ');
+}
+
+function render(portfolio, items) {
+  var totalVal = 0, totalPaid = 0;
+  items.forEach(function(i) {
+    var qty = parseInt(i.quantity) || 1;
+    totalVal += (parseFloat(i.estimated_value) || 0) * qty;
+    totalPaid += (parseFloat(i.purchase_price) || 0) * qty;
+  });
+  var totalGl = totalVal - totalPaid;
+
+  var html = '';
+
+  // Hero
+  html += '<div class="hero">';
+  html += '<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.25rem;">';
+  html += '<div><div class="portfolio-name">' + esc(portfolio.name) + '</div>';
+  if (portfolio.description) html += '<div class="portfolio-desc">' + esc(portfolio.description) + '</div>';
+  html += '</div>';
+  html += '<a href="https://theasylumcollective.com" class="asylum-link">Visit The Asylum →</a>';
+  html += '</div>';
+  html += '<div class="stats-row">';
+  html += '<div class="stat"><div class="stat-val">' + items.length + '</div><div class="stat-label">Items</div></div>';
+  if (totalVal > 0) html += '<div class="stat"><div class="stat-val">' + fmtMoney(totalVal) + '</div><div class="stat-label">Est. Value</div></div>';
+  if (totalPaid > 0) html += '<div class="stat"><div class="stat-val">' + fmtMoney(totalPaid) + '</div><div class="stat-label">Invested</div></div>';
+  if (totalVal > 0 && totalPaid > 0) {
+    html += '<div class="stat"><div class="stat-val ' + (totalGl >= 0 ? 'gain' : 'loss') + '">' + (totalGl >= 0 ? '+' : '') + fmtMoney(totalGl) + '</div><div class="stat-label">Gain / Loss</div></div>';
+  }
+  html += '</div></div>';
+
+  // Table
+  html += '<div class="main">';
+  html += '<div class="section-label">' + items.length + ' Cards in this Portfolio</div>';
+
+  if (!items.length) {
+    html += '<p style="color:var(--muted);padding:2rem 0;">No items in this portfolio yet.</p>';
+  } else {
+    html += '<div style="overflow-x:auto;">';
+    html += '<table class="collection-table"><thead><tr>';
+    html += '<th>Card</th><th>Category</th><th>Grade</th><th>Est. Value</th><th>Gain/Loss</th>';
+    html += '</tr></thead><tbody>';
+
+    items.forEach(function(item) {
+      var name = getItemName(item);
+      var detail = getItemDetail(item);
+      var qty = parseInt(item.quantity) || 1;
+      var paid = parseFloat(item.purchase_price) || 0;
+      var val = parseFloat(item.estimated_value) || 0;
+      var gl = (val - paid) * qty;
+      var isGraded = item.grade_company && item.grade;
+
+      html += '<tr>';
+      html += '<td><div style="font-weight:600;">' + esc(name) + '</div>';
+      if (detail) html += '<div style="font-size:11px;color:var(--muted);margin-top:2px;">' + esc(detail) + '</div>';
+      if (qty > 1) html += '<div style="font-size:11px;color:#555;">Qty: ' + qty + '</div>';
+      html += '</td>';
+      html += '<td><span class="cat-badge ' + (item.category || '') + '">' + catLabel(item.category) + '</span></td>';
+      html += '<td>' + (isGraded ? '<span style="font-family:\'Barlow Condensed\',sans-serif;letter-spacing:1px;">' + esc(item.grade_company) + ' ' + esc(item.grade) + '</span>' : '<span style="color:var(--muted);">Raw</span>') + '</td>';
+      html += '<td class="val">' + (val > 0 ? fmtMoney(val * qty) : '<span style="color:var(--muted);">—</span>') + '</td>';
+      if (paid > 0 && val > 0) {
+        html += '<td class="' + (gl >= 0 ? 'gain' : 'loss') + '">' + (gl >= 0 ? '+' : '') + fmtMoney(gl) + '</td>';
+      } else {
+        html += '<td style="color:var(--muted);">—</td>';
+      }
+      html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+  }
+
+  html += '<div style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border);text-align:center;">';
+  html += '<p style="font-size:12px;color:#444;letter-spacing:2px;font-family:\'Barlow Condensed\',sans-serif;text-transform:uppercase;">Shared via <a href="https://theasylumcollective.com" style="color:var(--red-bright);text-decoration:none;">The Asylum Collective</a></p>';
+  html += '</div>';
+  html += '</div>';
+
+  document.getElementById('app').innerHTML = html;
+  document.title = esc(portfolio.name) + ' — The Asylum Collective';
+}
+
+function esc(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+loadShare();
+</script>
+</body>
+</html>

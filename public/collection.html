@@ -163,6 +163,7 @@
     <div class="sidebar-section">
       <div class="sidebar-label" style="margin-bottom:0.5rem;">Archive</div>
       <button class="sidebar-btn" id="nav-sold" onclick="showPage('sold')"><span class="icon">✅</span>Sold Items</button>
+      <button class="sidebar-btn" id="nav-portfolios" onclick="showPage('portfolios')"><span class="icon">📁</span>Portfolios</button>
     </div>
     <div style="padding:1rem 1rem 0;display:flex;flex-direction:column;gap:8px;">
       <button class="export-btn" style="width:100%;" onclick="exportCSV()">⬇ Export CSV</button>
@@ -242,6 +243,17 @@
       <div class="section-label">Sold Items Archive</div>
       <div id="table-sold"></div>
     </div>
+
+    <!-- PORTFOLIOS -->
+    <div class="page" id="page-portfolios">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+        <div class="section-label" style="margin-bottom:0;">My Portfolios</div>
+        <button class="btn-sm" style="background:var(--red);color:#fff;border-color:var(--red);padding:8px 18px;font-size:12px;" onclick="openCreatePortfolio()">+ New Portfolio</button>
+      </div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:1.5rem;">Group cards into portfolios and share them with a link — great for showing PSA submissions, cards for sale, or a specific PC.</p>
+      <div id="portfolios-list"></div>
+    </div>
+
   </div>
 </div>
 
@@ -640,6 +652,7 @@ function renderTable(items) {
     } else { html += '<td style="color:var(--muted);">—</td>'; }
     html += '<td><div class="action-btns">';
     html += '<button class="btn-sm" onclick="openEditModal(\'' + safeId + '\')">Edit</button>';
+    html += '<button class="btn-sm" onclick="refreshItemPrice(\'' + safeId + '\')" title="Refresh market price">↻</button>';
     html += '<button class="btn-sm sold-btn" onclick="openSellModal(\'' + safeId + '\',\'' + safeName + '\')">Sold</button>';
     html += '<button class="btn-sm danger" onclick="deleteItem(\'' + safeId + '\')">✕</button>';
     html += '</div></td></tr>';
@@ -683,6 +696,7 @@ function showPage(page) {
   var navBtn = document.getElementById('nav-' + page);
   if (navBtn) navBtn.classList.add('active');
   document.getElementById('sidebar').classList.remove('open');
+  if (page === 'portfolios') loadPortfolios();
 }
 
 // ── ADD MODAL ──
@@ -1200,6 +1214,216 @@ window.closeImportModal = closeImportModal;
 window.handleImportFile = handleImportFile;
 window.showImportPreview = showImportPreview;
 window.confirmImport = confirmImport;
+
+// ─────────────────────────────────────────
+// PRICE REFRESH — single item
+// ─────────────────────────────────────────
+async function refreshItemPrice(id) {
+  var btn = event.target;
+  btn.textContent = '...';
+  btn.disabled = true;
+  try {
+    var res = await fetch('/api/collection/' + id + '/refresh-price', { method: 'POST' });
+    var data = await res.json();
+    if (data.success) {
+      showToast('Price updated: $' + parseFloat(data.price).toFixed(2), 'success');
+      // Update in local array and re-render
+      var idx = allItems.findIndex(function(i){ return i.id === id; });
+      if (idx !== -1) {
+        allItems[idx].estimated_value = data.price;
+        allItems[idx].value_updated_at = new Date().toISOString();
+      }
+      renderAll();
+      updateStats();
+    } else {
+      showToast(data.message || 'No price data found for this card', 'warning');
+    }
+  } catch(e) {
+    showToast('Price refresh failed', 'error');
+  }
+  btn.textContent = '↻';
+  btn.disabled = false;
+}
+
+// ─────────────────────────────────────────
+// PORTFOLIOS
+// ─────────────────────────────────────────
+var allPortfolios = [];
+var activePortfolioId = null;
+
+async function loadPortfolios() {
+  if (!currentUser) return;
+  try {
+    var res = await fetch('/api/portfolios/' + currentUser.id);
+    allPortfolios = await res.json();
+    renderPortfoliosList();
+  } catch(e) {
+    document.getElementById('portfolios-list').innerHTML = '<p style="color:var(--muted);font-size:13px;">Could not load portfolios.</p>';
+  }
+}
+
+function renderPortfoliosList() {
+  var container = document.getElementById('portfolios-list');
+  if (!container) return;
+
+  if (!allPortfolios.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">📁</div><h3>No Portfolios Yet</h3><p>Create a portfolio to group cards and share them with a link.</p></div>';
+    return;
+  }
+
+  var html = '<div style="display:grid;gap:1px;background:var(--border);">';
+  allPortfolios.forEach(function(p) {
+    var count = p.portfolio_items ? (p.portfolio_items[0]?.count || 0) : 0;
+    var shareUrl = window.location.origin + '/vault/share/' + p.share_token;
+    html += '<div style="background:var(--card);padding:1.25rem 1.5rem;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">' +
+        '<div>' +
+          '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:700;letter-spacing:1px;color:var(--text);">' + escapeHtml(p.name) + '</div>' +
+          (p.description ? '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' + escapeHtml(p.description) + '</div>' : '') +
+          '<div style="font-size:11px;color:#555;margin-top:4px;letter-spacing:1px;">' + count + ' items</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+          '<button class="btn-sm" onclick="openPortfolioManager(\'' + p.id + '\')">Manage Items</button>' +
+          '<button class="btn-sm" onclick="copyPortfolioLink(\'' + shareUrl + '\')">📋 Copy Link</button>' +
+          '<button class="btn-sm danger" onclick="deletePortfolio(\'' + p.id + '\')">✕</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function openCreatePortfolio() {
+  var name = prompt('Portfolio name (e.g. "My PSA Slabs", "Cards For Sale"):');
+  if (!name || !name.trim()) return;
+  var desc = prompt('Description (optional — shown on shared page):');
+  createPortfolio(name.trim(), desc ? desc.trim() : '');
+}
+
+async function createPortfolio(name, description) {
+  try {
+    var res = await fetch('/api/portfolios', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: currentUser.id, name, description })
+    });
+    var data = await res.json();
+    if (data.success) {
+      showToast('Portfolio created!', 'success');
+      loadPortfolios();
+    } else {
+      showToast(data.error || 'Failed to create portfolio', 'error');
+    }
+  } catch(e) { showToast('Failed to create portfolio', 'error'); }
+}
+
+async function deletePortfolio(id) {
+  if (!confirm('Delete this portfolio? The cards stay in your collection — only the portfolio grouping is removed.')) return;
+  try {
+    await fetch('/api/portfolios/' + id, { method: 'DELETE' });
+    showToast('Portfolio deleted', 'info');
+    loadPortfolios();
+  } catch(e) { showToast('Failed to delete', 'error'); }
+}
+
+function copyPortfolioLink(url) {
+  navigator.clipboard.writeText(url).then(function() {
+    showToast('Share link copied!', 'success');
+  }).catch(function() {
+    prompt('Copy this link:', url);
+  });
+}
+
+async function openPortfolioManager(portfolioId) {
+  activePortfolioId = portfolioId;
+  var portfolio = allPortfolios.find(function(p){ return p.id === portfolioId; });
+  if (!portfolio) return;
+
+  // Get current items in this portfolio
+  var res = await fetch('/api/portfolios/' + portfolioId + '/items');
+  var portfolioItems = await res.json();
+  var portfolioItemIds = new Set(portfolioItems.map(function(i){ return i.id; }));
+
+  // Build the manager modal
+  var existing = document.getElementById('portfolio-manager-modal');
+  if (existing) existing.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'portfolio-manager-modal';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.88);z-index:500;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:1rem;';
+  overlay.onclick = function(e){ if(e.target===overlay) overlay.remove(); };
+
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--red);padding:2rem;width:100%;max-width:700px;margin:auto;position:relative;';
+
+  var closeBtn = document.createElement('button');
+  closeBtn.innerHTML = '&times;';
+  closeBtn.style.cssText = 'position:absolute;top:1rem;right:1rem;background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;';
+  closeBtn.onclick = function(){ overlay.remove(); loadPortfolios(); };
+
+  var title = document.createElement('h2');
+  title.style.cssText = 'font-family:\'Bebas Neue\',sans-serif;font-size:32px;letter-spacing:4px;margin-bottom:0.25rem;';
+  title.textContent = portfolio.name.toUpperCase();
+
+  var sub = document.createElement('p');
+  sub.style.cssText = 'font-size:12px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:1.5rem;';
+  sub.textContent = 'Check items to add them to this portfolio';
+
+  var activeItems = allItems.filter(function(i){ return !i.is_sold; });
+  var listHtml = '<div style="max-height:450px;overflow-y:auto;border:1px solid var(--border);">';
+  listHtml += '<table style="width:100%;border-collapse:collapse;">';
+  listHtml += '<thead><tr style="background:var(--surface);"><th style="padding:8px;text-align:left;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);">IN</th><th style="padding:8px;text-align:left;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);">CARD</th><th style="padding:8px;text-align:right;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);">VALUE</th></tr></thead><tbody>';
+
+  activeItems.forEach(function(item) {
+    var name = getItemName(item);
+    var detail = getItemDetail(item);
+    var val = parseFloat(item.estimated_value) || 0;
+    var checked = portfolioItemIds.has(item.id) ? 'checked' : '';
+    listHtml += '<tr style="border-bottom:1px solid var(--border);" onmouseenter="this.style.background=\'var(--surface)\'" onmouseleave="this.style.background=\'\'">' +
+      '<td style="padding:8px;"><input type="checkbox" ' + checked + ' data-id="' + item.id + '" onchange="togglePortfolioItem(\'' + portfolioId + '\',this)" style="accent-color:var(--red-bright);width:16px;height:16px;cursor:pointer;"></td>' +
+      '<td style="padding:8px;"><div style="font-size:13px;font-weight:600;color:var(--text);">' + escapeHtml(name) + '</div>' + (detail ? '<div style="font-size:11px;color:var(--muted);">' + escapeHtml(detail) + '</div>' : '') + '</td>' +
+      '<td style="padding:8px;text-align:right;font-family:\'Bebas Neue\',sans-serif;font-size:18px;color:var(--gold);">' + (val > 0 ? '$' + val.toFixed(2) : '—') + '</td>' +
+    '</tr>';
+  });
+  listHtml += '</tbody></table></div>';
+
+  var doneBtn = document.createElement('button');
+  doneBtn.style.cssText = 'width:100%;background:var(--red);color:#fff;border:none;padding:12px;font-family:\'Barlow Condensed\',sans-serif;font-size:13px;font-weight:700;letter-spacing:3px;text-transform:uppercase;cursor:pointer;margin-top:1rem;';
+  doneBtn.textContent = 'Done';
+  doneBtn.onclick = function(){ overlay.remove(); loadPortfolios(); };
+
+  box.appendChild(closeBtn);
+  box.appendChild(title);
+  box.appendChild(sub);
+  box.innerHTML += listHtml;
+  box.appendChild(doneBtn);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
+async function togglePortfolioItem(portfolioId, checkbox) {
+  var itemId = checkbox.dataset.id;
+  var action = checkbox.checked ? 'add' : 'remove';
+  try {
+    await fetch('/api/portfolios/' + portfolioId + '/items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ collection_item_id: itemId, action })
+    });
+  } catch(e) {
+    showToast('Failed to update portfolio', 'error');
+    checkbox.checked = !checkbox.checked; // revert
+  }
+}
+
+window.refreshItemPrice = refreshItemPrice;
+window.loadPortfolios = loadPortfolios;
+window.openCreatePortfolio = openCreatePortfolio;
+window.deletePortfolio = deletePortfolio;
+window.copyPortfolioLink = copyPortfolioLink;
+window.openPortfolioManager = openPortfolioManager;
+window.togglePortfolioItem = togglePortfolioItem;
 
 init();
 </script>
