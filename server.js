@@ -1820,8 +1820,57 @@ app.post('/api/shipments/refresh/:user_id', async (req, res) => {
 
 
 // ─────────────────────────────────────────
-// PRICE UPDATES — JustTCG (TCG cards)
+// PRICE DEBUG — temporary diagnostic endpoint
 // ─────────────────────────────────────────
+app.get('/api/debug-prices', async (req, res) => {
+  const results = {};
+
+  // Check env vars are present (don't expose values)
+  results.env = {
+    JUSTTCG_API_KEY: !!process.env.JUSTTCG_API_KEY,
+    EBAY_APP_ID: !!process.env.EBAY_APP_ID,
+    EBAY_CERT_ID: !!process.env.EBAY_CERT_ID
+  };
+
+  // Test JustTCG with a known card
+  try {
+    const r = await fetch('https://api.justtcg.com/v1/cards?q=Charizard&set=Obsidian+Flames&game=pokemon&limit=1', {
+      headers: { 'Authorization': `Bearer ${process.env.JUSTTCG_API_KEY}` }
+    });
+    const data = await r.json();
+    results.justtcg = { status: r.status, hasData: !!(data.cards || data.data), sample: JSON.stringify(data).substring(0, 300) };
+  } catch(e) {
+    results.justtcg = { error: e.message };
+  }
+
+  // Test eBay token
+  try {
+    const creds = Buffer.from(`${process.env.EBAY_APP_ID}:${process.env.EBAY_CERT_ID}`).toString('base64');
+    const r = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
+      method: 'POST',
+      headers: { 'Authorization': `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope'
+    });
+    const data = await r.json();
+    results.ebay_token = { status: r.status, hasToken: !!data.access_token, error: data.error || null };
+
+    // If token works, test a search
+    if (data.access_token) {
+      const q = encodeURIComponent('Shohei Ohtani 2018 Topps PSA 10');
+      const url = `https://svcs.ebay.com/services/search/FindingService/v1?OPERATION-NAME=findCompletedItems&SERVICE-VERSION=1.0.0&SECURITY-APPNAME=${process.env.EBAY_APP_ID}&RESPONSE-DATA-FORMAT=JSON&REST-PAYLOAD&keywords=${q}&itemFilter(0).name=SoldItemsOnly&itemFilter(0).value=true&paginationInput.entriesPerPage=3&categoryId=213`;
+      const sr = await fetch(url);
+      const sd = await sr.json();
+      const items = sd?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item || [];
+      results.ebay_search = { status: sr.status, itemCount: items.length, sample: items[0] ? { title: items[0].title?.[0], price: items[0]?.sellingStatus?.[0]?.currentPrice?.[0] } : null };
+    }
+  } catch(e) {
+    results.ebay_token = { error: e.message };
+  }
+
+  res.json(results);
+});
+
+
 
 async function fetchTCGPrice(name, setName, game) {
   try {
