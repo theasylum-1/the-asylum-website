@@ -164,8 +164,9 @@
       <div class="sidebar-label" style="margin-bottom:0.5rem;">Archive</div>
       <button class="sidebar-btn" id="nav-sold" onclick="showPage('sold')"><span class="icon">✅</span>Sold Items</button>
     </div>
-    <div style="padding:1rem 1rem 0;">
+    <div style="padding:1rem 1rem 0;display:flex;flex-direction:column;gap:8px;">
       <button class="export-btn" style="width:100%;" onclick="exportCSV()">⬇ Export CSV</button>
+      <button class="export-btn" style="width:100%;border-color:var(--red-glow);color:var(--red-bright);" onclick="openImportModal()">⬆ Import CSV</button>
     </div>
   </div>
 
@@ -911,7 +912,328 @@ function showToast(msg, type) {
   setTimeout(function(){ t.style.display='none'; }, 3000);
 }
 
+// ── CSV IMPORT ──────────────────────────────────────────────
+// Accepts: our own export, Collectr exports, or any generic CSV
+// Flexible column matching — doesn't require exact header names
+
+var importRows = [];
+var importHeaders = [];
+
+function openImportModal() {
+  document.getElementById('import-modal').classList.add('open');
+  resetImportModal();
+}
+
+function closeImportModal() {
+  document.getElementById('import-modal').classList.remove('open');
+  resetImportModal();
+}
+
+function resetImportModal() {
+  document.getElementById('import-step-upload').style.display = 'block';
+  document.getElementById('import-step-preview').style.display = 'none';
+  document.getElementById('import-step-done').style.display = 'none';
+  var fi = document.getElementById('import-file-input');
+  if (fi) fi.value = '';
+  importRows = [];
+  importHeaders = [];
+}
+
+function handleImportFile(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  if (!file.name.endsWith('.csv')) {
+    showToast('Please select a .csv file.', 'error');
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    parseImportCSV(ev.target.result);
+  };
+  reader.readAsText(file);
+}
+
+function parseImportCSV(text) {
+  // Handle both \r\n and \n line endings
+  var lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(function(l){ return l.trim(); });
+  if (lines.length < 2) {
+    showToast('CSV must have a header row and at least one data row.', 'error');
+    return;
+  }
+
+  // Parse CSV properly (handles quoted fields with commas)
+  function parseCSVLine(line) {
+    var result = [];
+    var current = '';
+    var inQuotes = false;
+    for (var i = 0; i < line.length; i++) {
+      var ch = line[i];
+      if (ch === '"') {
+        inQuotes = !inQuotes;
+      } else if (ch === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  }
+
+  importHeaders = parseCSVLine(lines[0]).map(function(h){ return h.replace(/^"|"$/g,'').trim(); });
+  importRows = lines.slice(1).map(function(line){ return parseCSVLine(line); });
+
+  showImportPreview();
+}
+
+// Column name matching — maps common header variations to our fields
+function detectColumn(headers, candidates) {
+  var lc = headers.map(function(h){ return h.toLowerCase(); });
+  for (var i = 0; i < candidates.length; i++) {
+    var idx = lc.indexOf(candidates[i].toLowerCase());
+    if (idx !== -1) return idx;
+  }
+  // Partial match fallback
+  for (var j = 0; j < candidates.length; j++) {
+    for (var k = 0; k < lc.length; k++) {
+      if (lc[k].includes(candidates[j].toLowerCase()) || candidates[j].toLowerCase().includes(lc[k])) return k;
+    }
+  }
+  return -1;
+}
+
+function detectCategory(row, colMap) {
+  // Try to read category column first
+  if (colMap.category !== -1) {
+    var cat = (row[colMap.category] || '').toLowerCase();
+    if (cat.includes('sport') && cat.includes('seal')) return 'sealed_sports';
+    if (cat.includes('seal')) return 'sealed_tcg';
+    if (cat.includes('sport')) return 'sports_card';
+    if (cat.includes('tcg') || cat.includes('pokemon') || cat.includes('one piece') || cat.includes('magic')) return 'tcg_card';
+    if (cat) return 'tcg_card'; // default non-empty to TCG
+  }
+  // Guess from game/brand column
+  if (colMap.brand !== -1) {
+    var brand = (row[colMap.brand] || '').toLowerCase();
+    if (brand.includes('pokemon') || brand.includes('one piece') || brand.includes('magic') || brand.includes('yu-gi')) return 'tcg_card';
+    if (brand.includes('panini') || brand.includes('topps') || brand.includes('upper deck') || brand.includes('bowman')) return 'sports_card';
+  }
+  return 'tcg_card';
+}
+
+function showImportPreview() {
+  var colMap = {
+    category:     detectColumn(importHeaders, ['category','type','card type','item type']),
+    name:         detectColumn(importHeaders, ['name','card name','character name','player','player name','product','product name','title','item']),
+    brand:        detectColumn(importHeaders, ['brand','game','game / brand','game/brand','manufacturer','publisher','set brand']),
+    set:          detectColumn(importHeaders, ['set','set name','set / series','expansion','series','collection']),
+    year:         detectColumn(importHeaders, ['year','release year','date']),
+    card_number:  detectColumn(importHeaders, ['card #','card#','number','card number','#','num']),
+    parallel:     detectColumn(importHeaders, ['parallel','variant','holo','foil','parallel / holo','finish']),
+    grade_company:detectColumn(importHeaders, ['grade co','grader','grade company','grading company','psa','bgs','cgc']),
+    grade:        detectColumn(importHeaders, ['grade','score','condition']),
+    quantity:     detectColumn(importHeaders, ['qty','quantity','count','copies','amount']),
+    purchase_price:detectColumn(importHeaders, ['purchase price','paid','cost','buy price','acquired price','purchase','bought for']),
+    est_value:    detectColumn(importHeaders, ['est. value','estimated value','market value','value','current value','price','market price']),
+    notes:        detectColumn(importHeaders, ['notes','note','comment','comments','description'])
+  };
+
+  // Build preview table
+  var previewRows = importRows.slice(0, 5);
+  var detected = [];
+
+  var fieldNames = {
+    category:'Category', name:'Name', brand:'Brand', set:'Set',
+    year:'Year', card_number:'Card #', parallel:'Parallel',
+    grade_company:'Grader', grade:'Grade', quantity:'Qty',
+    purchase_price:'Purchase Price', est_value:'Est. Value', notes:'Notes'
+  };
+
+  Object.keys(colMap).forEach(function(field) {
+    var idx = colMap[field];
+    detected.push('<tr><td style="color:var(--muted);font-size:12px;padding:4px 8px;font-family:sans-serif;letter-spacing:1px;">' +
+      fieldNames[field] + '</td><td style="font-size:12px;padding:4px 8px;color:' + (idx !== -1 ? 'var(--text)' : '#444') + ';">' +
+      (idx !== -1 ? '"' + importHeaders[idx] + '"' : '— not found') + '</td></tr>');
+  });
+
+  var validRows = importRows.filter(function(r){ return r.some(function(c){ return c && c.trim(); }); });
+
+  document.getElementById('import-mapping-table').innerHTML = detected.join('');
+  document.getElementById('import-row-count').textContent = validRows.length;
+  document.getElementById('import-col-map').value = JSON.stringify(colMap);
+
+  document.getElementById('import-step-upload').style.display = 'none';
+  document.getElementById('import-step-preview').style.display = 'block';
+}
+
+async function confirmImport() {
+  var colMap = JSON.parse(document.getElementById('import-col-map').value);
+  var btn = document.getElementById('import-confirm-btn');
+  btn.textContent = 'Importing...';
+  btn.disabled = true;
+
+  var validRows = importRows.filter(function(r){ return r.some(function(c){ return c && c.trim(); }); });
+  var successCount = 0;
+  var failCount = 0;
+
+  for (var i = 0; i < validRows.length; i++) {
+    var row = validRows[i];
+
+    function val(key) {
+      var idx = colMap[key];
+      return (idx !== -1 && row[idx]) ? row[idx].replace(/^"|"$/g,'').trim() : '';
+    }
+
+    var category = detectCategory(row, colMap);
+    var name = val('name');
+    if (!name) { failCount++; continue; }
+
+    // Map category to our DB values
+    var catMap = {
+      'sports_card': 'sports_card',
+      'tcg_card': 'tcg_card',
+      'sealed_sports': 'sealed_sports',
+      'sealed_tcg': 'sealed_tcg'
+    };
+
+    // Determine player_character vs product_name based on category
+    var isSealed = category === 'sealed_sports' || category === 'sealed_tcg';
+    var isSports = category === 'sports_card';
+
+    var body = {
+      category: catMap[category] || 'tcg_card',
+      brand: val('brand') || null,
+      set_name: val('set') || null,
+      year: val('year') || null,
+      card_number: val('card_number') || null,
+      parallel: val('parallel') || null,
+      grade_company: val('grade_company') || null,
+      grade: val('grade') || null,
+      quantity: parseInt(val('quantity')) || 1,
+      purchase_price: parseFloat(val('purchase_price')) || 0,
+      estimated_value: parseFloat(val('est_value')) || 0,
+      notes: val('notes') || null
+    };
+
+    if (isSealed) {
+      body.product_name = name;
+    } else if (isSports) {
+      body.player_character = name;
+    } else {
+      body.player_character = name;
+    }
+
+    try {
+      var token = currentSession && currentSession.access_token;
+      var res = await fetch('/api/vault/items', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? 'Bearer ' + token : ''
+        },
+        body: JSON.stringify(body)
+      });
+      if (res.ok) {
+        successCount++;
+      } else {
+        failCount++;
+      }
+    } catch(e) {
+      failCount++;
+    }
+  }
+
+  // Show done screen
+  document.getElementById('import-step-preview').style.display = 'none';
+  document.getElementById('import-done-success').textContent = successCount;
+  document.getElementById('import-done-fail').textContent = failCount;
+  document.getElementById('import-step-done').style.display = 'block';
+
+  // Reload collection
+  if (successCount > 0) {
+    await loadItems();
+    updateStats();
+  }
+}
+
+window.openImportModal = openImportModal;
+window.closeImportModal = closeImportModal;
+window.handleImportFile = handleImportFile;
+window.showImportPreview = showImportPreview;
+window.confirmImport = confirmImport;
+
 init();
 </script>
+<!-- ── IMPORT CSV MODAL ── -->
+<div id="import-modal" class="modal-overlay" onclick="if(event.target===this)closeImportModal()">
+  <div style="background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--red);padding:2rem;width:100%;max-width:560px;margin:auto;position:relative;">
+    <button onclick="closeImportModal()" style="position:absolute;top:1rem;right:1rem;background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;line-height:1;">&#215;</button>
+
+    <!-- STEP 1: Upload -->
+    <div id="import-step-upload">
+      <h2 style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:4px;margin-bottom:0.25rem;">IMPORT CSV</h2>
+      <p style="font-size:12px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;margin-bottom:1.5rem;">Import from Collectr, our export, or any spreadsheet</p>
+
+      <!-- Drop zone -->
+      <label for="import-file-input" id="import-dropzone" style="display:block;border:2px dashed var(--border);padding:2.5rem;text-align:center;cursor:pointer;transition:border-color 0.2s;margin-bottom:1.5rem;"
+        ondragover="event.preventDefault();this.style.borderColor='var(--red)'"
+        ondragleave="this.style.borderColor='var(--border)'"
+        ondrop="event.preventDefault();this.style.borderColor='var(--border)';document.getElementById('import-file-input').files=event.dataTransfer.files;handleImportFile({target:document.getElementById('import-file-input')})">
+        <div style="font-size:32px;margin-bottom:0.75rem;">📂</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:2px;text-transform:uppercase;color:var(--text);margin-bottom:0.25rem;">Drop your CSV here</div>
+        <div style="font-size:12px;color:var(--muted);">or click to browse</div>
+      </label>
+      <input type="file" id="import-file-input" accept=".csv" style="display:none;" onchange="handleImportFile(event)">
+
+      <!-- Supported formats info -->
+      <div style="background:var(--surface);border:1px solid var(--border);padding:1rem;font-size:12px;color:var(--muted);line-height:1.8;">
+        <div style="font-family:'Barlow Condensed',sans-serif;letter-spacing:2px;text-transform:uppercase;color:var(--text);margin-bottom:0.5rem;">Supported formats</div>
+        <div>✓ &nbsp;The Asylum Vault export (our own format)</div>
+        <div>✓ &nbsp;Collectr PRO export</div>
+        <div>✓ &nbsp;Any CSV with columns like: Name, Set, Brand, Grade, Price...</div>
+        <div>✓ &nbsp;Hand-built spreadsheets exported as CSV</div>
+      </div>
+    </div>
+
+    <!-- STEP 2: Preview & column mapping -->
+    <div id="import-step-preview" style="display:none;">
+      <h2 style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:4px;margin-bottom:0.25rem;">PREVIEW</h2>
+      <p style="font-size:12px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;margin-bottom:1.25rem;">
+        Found <strong id="import-row-count" style="color:var(--text);">0</strong> items — column mapping detected below
+      </p>
+
+      <div style="background:var(--surface);border:1px solid var(--border);margin-bottom:1.25rem;max-height:260px;overflow-y:auto;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px;border-bottom:1px solid var(--border);background:var(--deep);">Our Field</th>
+              <th style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px;border-bottom:1px solid var(--border);background:var(--deep);">Matched to your column</th>
+            </tr>
+          </thead>
+          <tbody id="import-mapping-table"></tbody>
+        </table>
+      </div>
+
+      <input type="hidden" id="import-col-map">
+
+      <div style="display:flex;gap:8px;">
+        <button onclick="resetImportModal()" style="flex:1;background:none;border:1px solid var(--border);color:var(--muted);padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;">← Back</button>
+        <button id="import-confirm-btn" onclick="confirmImport()" style="flex:2;background:var(--red);color:#fff;border:none;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:3px;text-transform:uppercase;cursor:pointer;">Import All Items</button>
+      </div>
+      <p style="font-size:11px;color:#555;margin-top:0.75rem;text-align:center;">Items will be added to your existing collection. No duplicates are removed.</p>
+    </div>
+
+    <!-- STEP 3: Done -->
+    <div id="import-step-done" style="display:none;text-align:center;padding:1rem 0;">
+      <div style="font-size:48px;margin-bottom:1rem;">✅</div>
+      <h2 style="font-family:'Bebas Neue',sans-serif;font-size:40px;letter-spacing:4px;color:#4caf50;margin-bottom:0.5rem;">IMPORT COMPLETE</h2>
+      <p style="font-size:15px;color:var(--text);margin-bottom:0.25rem;"><strong id="import-done-success">0</strong> items imported successfully</p>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:1.5rem;"><span id="import-done-fail">0</span> rows skipped (missing name or error)</p>
+      <button onclick="closeImportModal()" style="background:var(--red);color:#fff;border:none;padding:12px 32px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:3px;text-transform:uppercase;cursor:pointer;">View My Collection</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
