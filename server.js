@@ -1825,47 +1825,58 @@ app.post('/api/shipments/refresh/:user_id', async (req, res) => {
 app.get('/api/debug-prices', async (req, res) => {
   const results = {};
 
-  // Check env vars are present (don't expose values)
+  // Check env vars are present
   results.env = {
     JUSTTCG_API_KEY: !!process.env.JUSTTCG_API_KEY,
     EBAY_APP_ID: !!process.env.EBAY_APP_ID,
     EBAY_CERT_ID: !!process.env.EBAY_CERT_ID
   };
 
-  // Test JustTCG with a known card
+  // Test 1: JustTCG no set filter (broad search)
   try {
-    const r = await fetch('https://api.justtcg.com/v1/cards?q=Charizard&set=Obsidian+Flames&game=pokemon&limit=1', {
+    const r1 = await fetch('https://api.justtcg.com/v1/cards?q=Charizard&game=pokemon&limit=2', {
       headers: { 'x-api-key': process.env.JUSTTCG_API_KEY }
     });
-    const data = await r.json();
-    results.justtcg = { status: r.status, hasData: !!(data.cards || data.data), sample: JSON.stringify(data).substring(0, 300) };
-  } catch(e) {
-    results.justtcg = { error: e.message };
-  }
+    const d1 = await r1.json();
+    const cards = d1.data || d1.cards || [];
+    results.justtcg_broad = {
+      status: r1.status,
+      count: cards.length,
+      first: cards[0] ? { name: cards[0].name, set: cards[0].set || cards[0].setName, variants: cards[0].variants ? cards[0].variants.length : 0, price: cards[0].marketPrice || (cards[0].variants && cards[0].variants[0] && cards[0].variants[0].marketPrice) } : null
+    };
+  } catch(e) { results.justtcg_broad = { error: e.message }; }
 
-  // Test eBay token
+  // Test 2: JustTCG with set — try "Obsidian Flames" vs "sv03"
   try {
-    const creds = Buffer.from(`${process.env.EBAY_APP_ID}:${process.env.EBAY_CERT_ID}`).toString('base64');
-    const r = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
-      method: 'POST',
-      headers: { 'Authorization': `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope'
+    const r2 = await fetch('https://api.justtcg.com/v1/sets?game=pokemon&q=Obsidian&limit=3', {
+      headers: { 'x-api-key': process.env.JUSTTCG_API_KEY }
     });
-    const data = await r.json();
-    results.ebay_token = { status: r.status, hasToken: !!data.access_token, error: data.error || null };
+    const d2 = await r2.json();
+    const sets = d2.data || d2.sets || [];
+    results.justtcg_sets = { status: r2.status, sets: sets.map(s => ({ id: s.id, name: s.name })) };
+  } catch(e) { results.justtcg_sets = { error: e.message }; }
 
-    // If token works, test a search
-    if (data.access_token) {
-      const q = encodeURIComponent('Shohei Ohtani 2018 Topps PSA 10');
-      const url = `https://svcs.ebay.com/services/search/FindingService/v1?OPERATION-NAME=findCompletedItems&SERVICE-VERSION=1.0.0&SECURITY-APPNAME=${process.env.EBAY_APP_ID}&RESPONSE-DATA-FORMAT=JSON&keywords=${q}&itemFilter%280%29.name=SoldItemsOnly&itemFilter%280%29.value=true&paginationInput.entriesPerPage=3&categoryId=212`;
-      const sr = await fetch(url);
-      const sd = await sr.json();
-      const items = sd?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item || [];
-      results.ebay_search = { status: sr.status, itemCount: items.length, sample: items[0] ? { title: items[0].title?.[0], price: items[0]?.sellingStatus?.[0]?.currentPrice?.[0] } : null };
-    }
-  } catch(e) {
-    results.ebay_token = { error: e.message };
-  }
+  // Test 3: eBay Finding API — test raw URL to see exact error
+  try {
+    const appId = process.env.EBAY_APP_ID;
+    const q = encodeURIComponent('Shohei Ohtani 2018 Topps PSA 10');
+    const url = 'https://svcs.ebay.com/services/search/FindingService/v1' +
+      '?OPERATION-NAME=findCompletedItems' +
+      '&SERVICE-VERSION=1.0.0' +
+      '&SECURITY-APPNAME=' + appId +
+      '&RESPONSE-DATA-FORMAT=JSON' +
+      '&keywords=' + q +
+      '&itemFilter(0).name=SoldItemsOnly' +
+      '&itemFilter(0).value=true' +
+      '&paginationInput.entriesPerPage=3' +
+      '&categoryId=212';
+    const r3 = await fetch(url);
+    const text = await r3.text();
+    results.ebay_finding = {
+      status: r3.status,
+      raw: text.substring(0, 500)
+    };
+  } catch(e) { results.ebay_finding = { error: e.message }; }
 
   res.json(results);
 });
