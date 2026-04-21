@@ -281,7 +281,7 @@
             <div class="form-group"><label>Sport</label><select id="sc-sport"><option value="">Select...</option><option>Baseball</option><option>Football</option><option>Basketball</option><option>Hockey</option><option>Soccer</option><option>Golf</option><option>UFC/MMA</option><option>Other</option></select></div>
           </div>
           <div class="form-grid three">
-            <div class="form-group"><label>Set Name</label><input type="text" id="sc-set" placeholder="e.g. Silver Prizm"></div>
+            <div class="form-group"><label>Set Name</label><input type="text" id="sc-set" placeholder="e.g. Silver Prizm" list="sc-sets"></div>
             <div class="form-group"><label>Card #</label><input type="text" id="sc-number" placeholder="e.g. #15"></div>
             <div class="form-group"><label>Parallel / Variation</label><input type="text" id="sc-parallel" placeholder="e.g. Gold /10"></div>
           </div>
@@ -305,7 +305,7 @@
           </div>
           <div class="form-grid three">
             <div class="form-group"><label>Game / Brand *</label><input type="text" id="tcg-brand" placeholder="e.g. Pokémon TCG" list="tcg-brands"><datalist id="tcg-brands"><option value="Pokémon TCG"><option value="One Piece TCG"><option value="Magic: The Gathering"><option value="Yu-Gi-Oh!"><option value="Dragon Ball Super"><option value="Lorcana"><option value="Digimon TCG"><option value="MetaZoo"></datalist></div>
-            <div class="form-group"><label>Set Name *</label><input type="text" id="tcg-set" placeholder="e.g. 151, Prismatic Evolutions"></div>
+            <div class="form-group"><label>Set Name *</label><input type="text" id="tcg-set" placeholder="e.g. 151, Prismatic Evolutions" list="tcg-sets"></div>
             <div class="form-group"><label>Year</label><input type="text" id="tcg-year" placeholder="e.g. 2024"></div>
           </div>
           <div class="form-grid three">
@@ -332,7 +332,7 @@
             <div class="form-group"><label>Brand *</label><input type="text" id="ss-brand" placeholder="e.g. Topps, Panini" list="sports-brands2"><datalist id="sports-brands2"><option value="Topps"><option value="Panini"><option value="Upper Deck"><option value="Bowman"><option value="Donruss"></datalist></div>
           </div>
           <div class="form-grid three">
-            <div class="form-group"><label>Set / Series</label><input type="text" id="ss-set" placeholder="e.g. Chrome, Prizm"></div>
+            <div class="form-group"><label>Set / Series</label><input type="text" id="ss-set" placeholder="e.g. Chrome, Prizm" list="ss-sets"></div>
             <div class="form-group"><label>Year *</label><input type="text" id="ss-year" placeholder="e.g. 2024"></div>
             <div class="form-group"><label>Sport</label><select id="ss-sport"><option>Baseball</option><option>Football</option><option>Basketball</option><option>Hockey</option><option>Multi-Sport</option></select></div>
           </div>
@@ -347,9 +347,77 @@
           <div class="form-grid">
             <div class="form-group"><label>Product Name *</label><input type="text" id="st-product" placeholder="e.g. Prismatic Evolutions Elite Trainer Box"></div>
             <div class="form-group"><label>Game / Brand *</label><input type="text" id="st-brand" placeholder="e.g. Pokémon TCG" list="tcg-brands2"><datalist id="tcg-brands2"><option value="Pokémon TCG"><option value="One Piece TCG"><option value="Magic: The Gathering"><option value="Yu-Gi-Oh!"><option value="Dragon Ball Super"><option value="Lorcana"></datalist></div>
+
+<!-- ── TCG CARD SET AUTOCOMPLETE ── -->
+<datalist id="tcg-sets">
+  <!-- Pokémon: Scarlet & Violet -->
+  <option value="Scarlet & Violet Base Set"><option value="Paldea Evolved"><option value="Obsidian Flames"><option value="151"><option value="Paradox Rift"><option value="Paldean Fates"><option value="Temporal Forces"><option value="Twilight Masquerade"><option value="Shrouded Fable"><option value="Stellar Crown"><option value="Surging Sparks"><option value="Prismatic Evolutions"><option value="Journey Together"><option value="Destined Rivals">
+  <!-- Pokémon: Sword & Shield -->
+  <option value="Sword & Shield Base Set"><option value="Rebel Clash"><option value="Darkness Ablaze"><option value="Champion's Path"><option value="Vivid Voltage"><option value="Shining Fates"><option value="Battle Styles"><option value="Chilling Reign"><option value="Evolving Skies"><option value="Celebrations"><option value="Fusion Strike"><option value="Brilliant Stars"><option value="Astral Radiance"><option value="Pokémon GO"><option value="Lost Origin"><option value="Silver Tempest"><option value="Crown Zenith">
+  <!-- Pokémon: Sun & Moon -->
+  <option value="Sun & Moon Base Set"><option value="Guardians Rising"><option value="Burning Shadows"><option value="Shining Legends"><option value="Crimson Invasion"><option value="Ultra Prism"><option value="Forbidden Light"><option value="Celestial Storm"><option value="Dragon Majesty"><option value="Lost Thunder"><option value="Team Up"><option value="Unbroken Bonds"><option value="Unified Minds"><option value="Hidden Fates"><option value="Cosmic Eclipse">
+  <!-- Pokémon: XY -->
+  <option value="XY Base Set"><option value="Flashfire"><option value="Furious Fists"><option value="Phantom Forces"><option value="Primal Clash"><option value="Roaring Skies"><option value="Ancient Origins"><option value="BREAKthrough"><option value="BREAKpoint"><option value="Fates Collide"><option value="Steam Siege"><option value="Evolutions">
+  <!-- Pokémon: Vintage -->
+  <option value="Base Set"><option value="Jungle"><option value="Fossil"><option value="Base Set 2"><option value="Team Rocket"><option value="Gym Heroes"><option value="Gym Challenge"><option value="Neo Genesis"><option value="Neo Discovery"><option value="Neo Revelation"><option value="Neo Destiny"><option value="Legendary Collection"><option value="Expedition"><option value="Aquapolis"><option value="Skyridge">
+  <!-- Pokémon: Japanese -->
+  <option value="Mask of Change"><option value="Wild Force"><option value="Clay Burst"><option value="Snow Hazard"><option value="Ruler of the Black Flame"><option value="Ancient Roar"><option value="Future Flash"><option value="Raging Surf"><option value="Shiny Treasure ex"><option value="Night Wanderer"><option value="Battle Partners">
+  <!-- One Piece: Booster Sets -->
+  <option value="OP01 Romance Dawn"><option value="OP02 Paramount War"><option value="OP03 Pillars of Strength"><option value="OP04 Kingdoms of Intrigue"><option value="OP05 Awakening of the New Era"><option value="OP06 Wings of the Captain"><option value="OP07 500 Years in the Future"><option value="OP08 Two Legends"><option value="OP09 The Four Emperors"><option value="OP10 Royal Blood">
+  <!-- One Piece: Starter Decks -->
+  <option value="ST01 Straw Hat Crew"><option value="ST02 Worst Generation"><option value="ST03 The Seven Warlords"><option value="ST04 Animal Kingdom Pirates"><option value="ST05 Film Edition"><option value="ST06 Absolute Justice"><option value="ST07 Big Mom Pirates"><option value="ST08 Monkey D. Luffy"><option value="ST09 Yamato"><option value="ST10 Starter Deck OP-10"><option value="ST11 Uta"><option value="ST12 Zoro & Sanji"><option value="ST13 The Three Brothers"><option value="ST14 3D2Y"><option value="ST15 Red-Haired Shanks"><option value="ST16 Uta's Song"><option value="ST17 Dark Tactics"><option value="ST18 Fishman Island"><option value="ST19 Black, White & Red"><option value="ST20 Revolutionary Army">
+  <!-- One Piece: Special -->
+  <option value="Premium Card Collection"><option value="Extra Booster Memorial Collection">
+</datalist>
+
+<!-- ── SEALED TCG SET AUTOCOMPLETE ── -->
+<datalist id="st-sets">
+  <!-- Pokémon: Scarlet & Violet -->
+  <option value="Prismatic Evolutions"><option value="Surging Sparks"><option value="Stellar Crown"><option value="Shrouded Fable"><option value="Twilight Masquerade"><option value="Temporal Forces"><option value="Paldean Fates"><option value="Paradox Rift"><option value="151"><option value="Obsidian Flames"><option value="Paldea Evolved"><option value="Scarlet & Violet Base Set"><option value="Journey Together"><option value="Destined Rivals">
+  <!-- Pokémon: Sword & Shield -->
+  <option value="Crown Zenith"><option value="Silver Tempest"><option value="Lost Origin"><option value="Astral Radiance"><option value="Brilliant Stars"><option value="Fusion Strike"><option value="Celebrations"><option value="Evolving Skies"><option value="Chilling Reign"><option value="Battle Styles"><option value="Shining Fates"><option value="Vivid Voltage"><option value="Champion's Path"><option value="Darkness Ablaze"><option value="Rebel Clash"><option value="Sword & Shield Base Set">
+  <!-- Pokémon: Sun & Moon -->
+  <option value="Cosmic Eclipse"><option value="Hidden Fates"><option value="Unified Minds"><option value="Unbroken Bonds"><option value="Team Up"><option value="Lost Thunder"><option value="Dragon Majesty"><option value="Celestial Storm"><option value="Forbidden Light"><option value="Ultra Prism"><option value="Crimson Invasion"><option value="Shining Legends"><option value="Burning Shadows"><option value="Guardians Rising"><option value="Sun & Moon Base Set">
+  <!-- Pokémon: XY -->
+  <option value="Evolutions"><option value="Steam Siege"><option value="Fates Collide"><option value="BREAKpoint"><option value="BREAKthrough"><option value="Ancient Origins"><option value="Roaring Skies"><option value="Primal Clash"><option value="Phantom Forces"><option value="Furious Fists"><option value="Flashfire"><option value="XY Base Set">
+  <!-- Pokémon: Vintage Sealed -->
+  <option value="Base Set Booster Box"><option value="Jungle Booster Box"><option value="Fossil Booster Box"><option value="Team Rocket Booster Box"><option value="Gym Heroes Booster Box"><option value="Gym Challenge Booster Box"><option value="Neo Genesis Booster Box"><option value="Neo Discovery Booster Box"><option value="Neo Revelation Booster Box">
+  <!-- One Piece Sealed -->
+  <option value="OP01 Romance Dawn"><option value="OP02 Paramount War"><option value="OP03 Pillars of Strength"><option value="OP04 Kingdoms of Intrigue"><option value="OP05 Awakening of the New Era"><option value="OP06 Wings of the Captain"><option value="OP07 500 Years in the Future"><option value="OP08 Two Legends"><option value="OP09 The Four Emperors"><option value="OP10 Royal Blood"><option value="Extra Booster Memorial Collection"><option value="Premium Card Collection">
+</datalist>
+
+<!-- ── SPORTS CARD PARALLEL/SET AUTOCOMPLETE ── -->
+<datalist id="sc-sets">
+  <!-- Prizm Parallels -->
+  <option value="Silver Prizm"><option value="Gold Prizm"><option value="Green Prizm"><option value="Red Prizm"><option value="Blue Prizm"><option value="Purple Prizm"><option value="Pink Prizm"><option value="Orange Prizm"><option value="Hyper Prizm"><option value="Carolina Blue Prizm"><option value="Red White & Blue Prizm"><option value="Green & Yellow Prizm"><option value="Black Prizm"><option value="White Prizm"><option value="Teal Prizm">
+  <!-- Topps Chrome Parallels -->
+  <option value="Base Refractor"><option value="Atomic Refractor"><option value="Superfractor"><option value="Gold Refractor"><option value="Orange Refractor"><option value="Red Refractor"><option value="Blue Refractor"><option value="Green Refractor"><option value="Purple Refractor"><option value="Pink Refractor"><option value="Black Refractor"><option value="Prism Refractor"><option value="Speckle Refractor"><option value="Sepia Refractor">
+  <!-- Bowman Chrome -->
+  <option value="1st Bowman Chrome"><option value="1st Bowman Chrome Auto"><option value="Prospect Auto"><option value="Prospect Chrome">
+  <!-- Select Parallels -->
+  <option value="White Prizm"><option value="Courtside"><option value="Tri-Color Prizm"><option value="Disco Prizm"><option value="Blue & White Prizm"><option value="Orange & Blue Prizm"><option value="Green & Blue Prizm">
+  <!-- Card Types -->
+  <option value="Base"><option value="Rookie Card"><option value="Rookie Auto"><option value="RPA (Rookie Patch Auto)"><option value="Patch Auto"><option value="Auto"><option value="Rookie Silhouette"><option value="Short Print"><option value="Variation"><option value="Photo Variation"><option value="Hat Logo"><option value="Printing Plate Black"><option value="Printing Plate Cyan"><option value="Printing Plate Magenta"><option value="Printing Plate Yellow"><option value="Logoman"><option value="Tag"><option value="Laundry Tag">
+  <!-- National Treasures -->
+  <option value="Rookie Patch Auto Platinum"><option value="Rookie Patch Auto Gold"><option value="Rookie Patch Auto RPA">
+</datalist>
+
+<!-- ── SEALED SPORTS SET AUTOCOMPLETE ── -->
+<datalist id="ss-sets">
+  <!-- Baseball -->
+  <option value="Topps Series 1"><option value="Topps Series 2"><option value="Topps Update"><option value="Topps Chrome"><option value="Topps Chrome Update"><option value="Topps Heritage"><option value="Topps Stadium Club"><option value="Topps Finest"><option value="Topps Tier One"><option value="Topps Luminaries"><option value="Topps Archives"><option value="Topps Five Star"><option value="Topps Definitive"><option value="Topps Transcendent"><option value="Bowman Draft"><option value="Bowman Chrome"><option value="Bowman's Best"><option value="Bowman Sterling"><option value="Bowman Platinum"><option value="Panini Prizm Baseball"><option value="Panini Select Baseball"><option value="Panini National Treasures Baseball"><option value="Panini Immaculate Baseball"><option value="Panini Chronicles Baseball"><option value="Panini Donruss Baseball">
+  <!-- Football -->
+  <option value="Panini Prizm Football"><option value="Panini Select Football"><option value="Panini National Treasures Football"><option value="Panini Immaculate Football"><option value="Panini Contenders Football"><option value="Panini Absolute Football"><option value="Panini Mosaic Football"><option value="Panini Optic Football"><option value="Panini Spectra Football"><option value="Panini Flawless Football"><option value="Panini Phoenix Football"><option value="Panini Origins Football"><option value="Panini Obsidian Football"><option value="Panini Majestic Football"><option value="Panini Gold Standard Football"><option value="Panini XR Football"><option value="Panini Score Football"><option value="Panini Prestige Football"><option value="Panini Luminance Football"><option value="Panini Certified Football">
+  <!-- Basketball -->
+  <option value="Panini Prizm Basketball"><option value="Panini Select Basketball"><option value="Panini National Treasures Basketball"><option value="Panini Immaculate Basketball"><option value="Panini Contenders Basketball"><option value="Panini Mosaic Basketball"><option value="Panini Optic Basketball"><option value="Panini Spectra Basketball"><option value="Panini Flawless Basketball"><option value="Panini Chronicles Basketball"><option value="Panini Court Kings Basketball"><option value="Panini Certified Basketball"><option value="Panini Hoops Basketball"><option value="Panini Revolution Basketball"><option value="Panini Obsidian Basketball"><option value="Panini Stax Basketball">
+  <!-- Hockey -->
+  <option value="Upper Deck Series 1 Hockey"><option value="Upper Deck Series 2 Hockey"><option value="Upper Deck Young Guns"><option value="Upper Deck Ultimate Collection Hockey"><option value="Upper Deck SP Authentic Hockey"><option value="Upper Deck The Cup Hockey"><option value="Upper Deck Artifacts Hockey"><option value="Upper Deck OPC Platinum Hockey"><option value="Upper Deck Black Diamond Hockey">
+  <!-- Soccer -->
+  <option value="Topps Chrome MLS"><option value="Panini Prizm MLS"><option value="Topps UEFA Champions League"><option value="Panini Prizm UEFA Nations League"><option value="Topps Match Attax"><option value="Panini Adrenalyn XL">
+</datalist>
           </div>
           <div class="form-grid three">
-            <div class="form-group"><label>Set / Series</label><input type="text" id="st-set" placeholder="e.g. Prismatic Evolutions"></div>
+            <div class="form-group"><label>Set / Series</label><input type="text" id="st-set" placeholder="e.g. Prismatic Evolutions" list="st-sets"></div>
             <div class="form-group"><label>Year</label><input type="text" id="st-year" placeholder="e.g. 2025"></div>
             <div class="form-group"><label>Language</label><select id="st-language"><option>English</option><option>Japanese</option><option>Korean</option><option>Other</option></select></div>
           </div>
