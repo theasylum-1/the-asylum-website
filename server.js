@@ -1897,7 +1897,6 @@ async function fetchTCGPrice(name, setName, cardNumber, game) {
 
 async function fetchSportsPrice(playerName, setName, parallel, gradeCompany, grade) {
   try {
-    // Get eBay OAuth token (cached per request — could cache globally but fine for now)
     const creds = Buffer.from(`${process.env.EBAY_APP_ID}:${process.env.EBAY_CERT_ID}`).toString('base64');
     const tokenRes = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
       method: 'POST',
@@ -1909,54 +1908,60 @@ async function fetchSportsPrice(playerName, setName, parallel, gradeCompany, gra
     const token = tokenData.access_token;
     if (!token) return null;
 
-    // Build query — sports cards need concise queries for eBay
-    // Strip verbose Collectr set names down to just the core product name
+    // Clean verbose Collectr set names
     const cleanSet = (setName || '')
-      .replace(/Topps Chrome /i, 'Topps Chrome ')  // keep brand
-      .replace(/Bowman Chrome /i, 'Bowman Chrome ')
-      .replace(/ Autographs?$/i, '')               // strip trailing "Autographs"
+      .replace(/ Autographs?$/i, '')
       .replace(/ Autograph$/i, '')
       .replace(/Us Olympic And Paralympic Hopefuls? /i, 'Olympic ')
       .replace(/Rookie Autograph$/i, 'RC Auto')
       .trim();
 
-    const parts = [
-      playerName,
-      cleanSet || null,
-      parallel && parallel.length < 30 ? parallel : null,  // skip overly long parallel names
-      gradeCompany && grade ? `${gradeCompany} ${grade}` : null
-    ].filter(Boolean);
-    const query = parts.join(' ');
+    // Try up to 3 progressively simpler queries
+    const gradeStr = gradeCompany && grade ? `${gradeCompany} ${grade}` : null;
+    const queries = [
+      // Full: name + set + grade
+      [playerName, cleanSet || null, gradeStr].filter(Boolean).join(' '),
+      // Simpler: name + grade only
+      [playerName, gradeStr].filter(Boolean).join(' '),
+      // Simplest: name only
+      playerName
+    ];
 
-    // Bot uses filter param with soldItemsOnly:true — not a separate endpoint
-    const params = new URLSearchParams({
-      q: query,
-      filter: 'buyingOptions:{FIXED_PRICE},conditions:{USED|LIKE_NEW|VERY_GOOD|GOOD|ACCEPTABLE},soldItemsOnly:true',
-      sort: 'endingSoonest',
-      limit: '5'
-    });
+    for (const query of queries) {
+      if (!query.trim()) continue;
 
-    const browseRes = await fetch(`https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US',
-        'Content-Type': 'application/json'
-      }
-    });
-    if (!browseRes.ok) return null;
-    const browseData = await browseRes.json();
-    const items = browseData.itemSummaries || [];
-    if (!items.length) return null;
+      // soldItemsOnly without condition filter — PSA graded cards sell as "New" on eBay
+      const params = new URLSearchParams({
+        q: query,
+        filter: 'soldItemsOnly:true',
+        sort: 'endingSoonest',
+        limit: '5'
+      });
 
-    // Average sold prices (bot uses avg, not median for sports)
-    const prices = items
-      .map(i => parseFloat(i?.price?.value || 0))
-      .filter(p => p > 0);
-    if (!prices.length) return null;
-    const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
-    return parseFloat(avg.toFixed(2));
+      const browseRes = await fetch(`https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US',
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!browseRes.ok) continue;
+      const browseData = await browseRes.json();
+      const items = browseData.itemSummaries || [];
+      if (!items.length) continue;
+
+      const prices = items
+        .map(i => parseFloat(i?.price?.value || 0))
+        .filter(p => p > 0);
+      if (!prices.length) continue;
+
+      const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+      return parseFloat(avg.toFixed(2));
+    }
+    return null;
   } catch (e) { return null; }
 }
+
 
 // ─────────────────────────────────────────
 // PRICE UPDATE — single item endpoint
