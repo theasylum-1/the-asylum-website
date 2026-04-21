@@ -954,28 +954,16 @@ function handleImportFile(e) {
 }
 
 function parseImportCSV(text) {
-  // Handle both \r\n and \n line endings
   var lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(function(l){ return l.trim(); });
-  if (lines.length < 2) {
-    showToast('CSV must have a header row and at least one data row.', 'error');
-    return;
-  }
+  if (lines.length < 2) { showToast('CSV must have a header row and at least one data row.', 'error'); return; }
 
-  // Parse CSV properly (handles quoted fields with commas)
   function parseCSVLine(line) {
-    var result = [];
-    var current = '';
-    var inQuotes = false;
+    var result = [], current = '', inQuotes = false;
     for (var i = 0; i < line.length; i++) {
       var ch = line[i];
-      if (ch === '"') {
-        inQuotes = !inQuotes;
-      } else if (ch === ',' && !inQuotes) {
-        result.push(current.trim());
-        current = '';
-      } else {
-        current += ch;
-      }
+      if (ch === '"') { inQuotes = !inQuotes; }
+      else if (ch === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+      else { current += ch; }
     }
     result.push(current.trim());
     return result;
@@ -983,18 +971,25 @@ function parseImportCSV(text) {
 
   importHeaders = parseCSVLine(lines[0]).map(function(h){ return h.replace(/^"|"$/g,'').trim(); });
   importRows = lines.slice(1).map(function(line){ return parseCSVLine(line); });
-
   showImportPreview();
 }
 
-// Column name matching — maps common header variations to our fields
+// Detect which format the CSV is — drives special parsing logic
+function detectFormat(headers) {
+  var lc = headers.map(function(h){ return h.toLowerCase(); });
+  // Collectr: has "portfolio name" and "product name" and "average cost paid"
+  if (lc.indexOf('portfolio name') !== -1 && lc.indexOf('product name') !== -1) return 'collectr';
+  // Card Ladder: has "ladder id" or "slab serial #" or "player" + "investment"
+  if (lc.indexOf('ladder id') !== -1 || lc.indexOf('slab serial #') !== -1 || lc.indexOf('investment') !== -1) return 'cardladder';
+  return 'generic';
+}
+
 function detectColumn(headers, candidates) {
   var lc = headers.map(function(h){ return h.toLowerCase(); });
   for (var i = 0; i < candidates.length; i++) {
     var idx = lc.indexOf(candidates[i].toLowerCase());
     if (idx !== -1) return idx;
   }
-  // Partial match fallback
   for (var j = 0; j < candidates.length; j++) {
     for (var k = 0; k < lc.length; k++) {
       if (lc[k].includes(candidates[j].toLowerCase()) || candidates[j].toLowerCase().includes(lc[k])) return k;
@@ -1003,66 +998,115 @@ function detectColumn(headers, candidates) {
   return -1;
 }
 
-function detectCategory(row, colMap) {
-  // Try to read category column first
-  if (colMap.category !== -1) {
-    var cat = (row[colMap.category] || '').toLowerCase();
-    if (cat.includes('sport') && cat.includes('seal')) return 'sealed_sports';
-    if (cat.includes('seal')) return 'sealed_tcg';
-    if (cat.includes('sport')) return 'sports_card';
-    if (cat.includes('tcg') || cat.includes('pokemon') || cat.includes('one piece') || cat.includes('magic')) return 'tcg_card';
-    if (cat) return 'tcg_card'; // default non-empty to TCG
-  }
-  // Guess from game/brand column
-  if (colMap.brand !== -1) {
-    var brand = (row[colMap.brand] || '').toLowerCase();
-    if (brand.includes('pokemon') || brand.includes('one piece') || brand.includes('magic') || brand.includes('yu-gi')) return 'tcg_card';
-    if (brand.includes('panini') || brand.includes('topps') || brand.includes('upper deck') || brand.includes('bowman')) return 'sports_card';
-  }
+// Parse grader + grade from a combined string like "PSA 10.0 GEM - MT" or "PSA 9" or "BGS 9.5"
+function parseGrade(str) {
+  if (!str || str.toLowerCase() === 'ungraded' || str.toLowerCase() === 'raw') return { grader: null, grade: null };
+  var m = str.match(/^(PSA|BGS|SGC|CGC|TAG|HGA|CSG|GAI)\s+([\d.]+)/i);
+  if (m) return { grader: m[1].toUpperCase(), grade: m[2] };
+  return { grader: null, grade: null };
+}
+
+// Map Collectr/Card Ladder category strings to our category values
+function mapCategory(catStr, brandStr) {
+  var cat = (catStr || '').toLowerCase();
+  var brand = (brandStr || '').toLowerCase();
+
+  // Collectr uses "Pokemon", "One Piece" directly in Category
+  if (cat === 'pokemon' || cat === 'one piece' || cat === 'magic' || cat === 'yu-gi-oh' || cat === 'lorcana' || cat === 'digimon') return 'tcg_card';
+  // Card Ladder uses sport name in Category: "Baseball", "Basketball", "Football", "Hockey", "Soccer", "Swimming", "Entertainment", "Disney"
+  if (cat === 'baseball' || cat === 'football' || cat === 'basketball' || cat === 'hockey' || cat === 'soccer' ||
+      cat === 'swimming' || cat === 'entertainment' || cat === 'disney' || cat === 'golf' || cat === 'ufc' || cat === 'mma') return 'sports_card';
+  // Generic fallback
+  if (cat.includes('sport') && cat.includes('seal')) return 'sealed_sports';
+  if (cat.includes('seal')) return 'sealed_tcg';
+  if (cat.includes('sport')) return 'sports_card';
+  if (cat.includes('pokemon') || cat.includes('one piece') || cat.includes('magic')) return 'tcg_card';
+  // Brand-based fallback
+  if (brand.includes('panini') || brand.includes('topps') || brand.includes('upper deck') || brand.includes('bowman')) return 'sports_card';
+  if (brand.includes('pokemon') || brand.includes('one piece') || brand.includes('magic')) return 'tcg_card';
   return 'tcg_card';
 }
 
+function buildColMap(headers) {
+  var fmt = detectFormat(headers);
+  if (fmt === 'collectr') {
+    return {
+      _format: 'collectr',
+      category:      detectColumn(headers, ['category']),
+      name:          detectColumn(headers, ['product name']),
+      brand:         -1, // Collectr has no brand column — derive from category
+      set:           detectColumn(headers, ['set']),
+      year:          -1,
+      card_number:   detectColumn(headers, ['card number']),
+      parallel:      detectColumn(headers, ['variance']),
+      grade_combined:detectColumn(headers, ['grade']),
+      quantity:      detectColumn(headers, ['quantity']),
+      purchase_price:detectColumn(headers, ['average cost paid']),
+      est_value:     detectColumn(headers, ['market price']),
+      notes:         detectColumn(headers, ['notes'])
+    };
+  }
+  if (fmt === 'cardladder') {
+    return {
+      _format: 'cardladder',
+      category:      detectColumn(headers, ['category']),
+      name:          detectColumn(headers, ['player']),
+      card_title:    detectColumn(headers, ['card']),
+      brand:         -1, // derive from set
+      set:           detectColumn(headers, ['set']),
+      year:          detectColumn(headers, ['year']),
+      card_number:   detectColumn(headers, ['number']),
+      parallel:      detectColumn(headers, ['variation']),
+      grade_combined:detectColumn(headers, ['condition']),
+      quantity:      detectColumn(headers, ['quantity']),
+      purchase_price:detectColumn(headers, ['investment']),
+      est_value:     detectColumn(headers, ['current value']),
+      notes:         detectColumn(headers, ['notes'])
+    };
+  }
+  // Generic
+  return {
+    _format: 'generic',
+    category:      detectColumn(headers, ['category','type','card type','item type']),
+    name:          detectColumn(headers, ['name','card name','character name','player','player name','product name','title','item']),
+    brand:         detectColumn(headers, ['brand','game','game / brand','game/brand','manufacturer','publisher']),
+    set:           detectColumn(headers, ['set','set name','set / series','expansion','series']),
+    year:          detectColumn(headers, ['year','release year']),
+    card_number:   detectColumn(headers, ['card #','card#','number','card number','#']),
+    parallel:      detectColumn(headers, ['parallel','variant','holo','variance','variation','parallel / holo','finish']),
+    grade_combined:detectColumn(headers, ['grade','condition']),
+    quantity:      detectColumn(headers, ['qty','quantity','count','copies']),
+    purchase_price:detectColumn(headers, ['purchase price','paid','cost','buy price','average cost paid','investment','bought for']),
+    est_value:     detectColumn(headers, ['est. value','estimated value','market value','value','current value','market price','price']),
+    notes:         detectColumn(headers, ['notes','note','comment','comments'])
+  };
+}
+
 function showImportPreview() {
-  var colMap = {
-    category:     detectColumn(importHeaders, ['category','type','card type','item type']),
-    name:         detectColumn(importHeaders, ['name','card name','character name','player','player name','product','product name','title','item']),
-    brand:        detectColumn(importHeaders, ['brand','game','game / brand','game/brand','manufacturer','publisher','set brand']),
-    set:          detectColumn(importHeaders, ['set','set name','set / series','expansion','series','collection']),
-    year:         detectColumn(importHeaders, ['year','release year','date']),
-    card_number:  detectColumn(importHeaders, ['card #','card#','number','card number','#','num']),
-    parallel:     detectColumn(importHeaders, ['parallel','variant','holo','foil','parallel / holo','finish']),
-    grade_company:detectColumn(importHeaders, ['grade co','grader','grade company','grading company','psa','bgs','cgc']),
-    grade:        detectColumn(importHeaders, ['grade','score','condition']),
-    quantity:     detectColumn(importHeaders, ['qty','quantity','count','copies','amount']),
-    purchase_price:detectColumn(importHeaders, ['purchase price','paid','cost','buy price','acquired price','purchase','bought for']),
-    est_value:    detectColumn(importHeaders, ['est. value','estimated value','market value','value','current value','price','market price']),
-    notes:        detectColumn(importHeaders, ['notes','note','comment','comments','description'])
+  var colMap = buildColMap(importHeaders);
+
+  var fieldLabels = {
+    category:'Category', name:'Name / Player', set:'Set', year:'Year',
+    card_number:'Card #', parallel:'Parallel / Variant', grade_combined:'Grade',
+    quantity:'Qty', purchase_price:'Purchase Price', est_value:'Est. Value', notes:'Notes'
   };
 
-  // Build preview table
-  var previewRows = importRows.slice(0, 5);
   var detected = [];
-
-  var fieldNames = {
-    category:'Category', name:'Name', brand:'Brand', set:'Set',
-    year:'Year', card_number:'Card #', parallel:'Parallel',
-    grade_company:'Grader', grade:'Grade', quantity:'Qty',
-    purchase_price:'Purchase Price', est_value:'Est. Value', notes:'Notes'
-  };
-
-  Object.keys(colMap).forEach(function(field) {
+  Object.keys(fieldLabels).forEach(function(field) {
     var idx = colMap[field];
-    detected.push('<tr><td style="color:var(--muted);font-size:12px;padding:4px 8px;font-family:sans-serif;letter-spacing:1px;">' +
-      fieldNames[field] + '</td><td style="font-size:12px;padding:4px 8px;color:' + (idx !== -1 ? 'var(--text)' : '#444') + ';">' +
-      (idx !== -1 ? '"' + importHeaders[idx] + '"' : '— not found') + '</td></tr>');
+    detected.push('<tr><td style="color:var(--muted);font-size:12px;padding:4px 8px;">' + fieldLabels[field] +
+      '</td><td style="font-size:12px;padding:4px 8px;color:' + (idx !== undefined && idx !== -1 ? 'var(--text)' : '#444') + ';">' +
+      (idx !== undefined && idx !== -1 ? '"' + importHeaders[idx] + '"' : '— not found') + '</td></tr>');
   });
 
-  var validRows = importRows.filter(function(r){ return r.some(function(c){ return c && c.trim(); }); });
+  var fmt = colMap._format;
+  var fmtBadge = fmt === 'collectr' ? '✓ Collectr format detected' : fmt === 'cardladder' ? '✓ Card Ladder format detected' : '✓ Generic CSV format';
+  detected.unshift('<tr><td colspan="2" style="padding:4px 8px;font-size:11px;color:var(--red-bright);font-family:sans-serif;letter-spacing:2px;">' + fmtBadge + '</td></tr>');
 
+  var validRows = importRows.filter(function(r){ return r.some(function(c){ return c && c.trim(); }); });
   document.getElementById('import-mapping-table').innerHTML = detected.join('');
   document.getElementById('import-row-count').textContent = validRows.length;
   document.getElementById('import-col-map').value = JSON.stringify(colMap);
-
   document.getElementById('import-step-upload').style.display = 'none';
   document.getElementById('import-step-preview').style.display = 'block';
 }
@@ -1074,43 +1118,48 @@ async function confirmImport() {
   btn.disabled = true;
 
   var validRows = importRows.filter(function(r){ return r.some(function(c){ return c && c.trim(); }); });
-  var successCount = 0;
-  var failCount = 0;
+  var successCount = 0, failCount = 0;
 
   for (var i = 0; i < validRows.length; i++) {
     var row = validRows[i];
 
     function val(key) {
       var idx = colMap[key];
-      return (idx !== -1 && row[idx]) ? row[idx].replace(/^"|"$/g,'').trim() : '';
+      if (idx === undefined || idx === -1 || !row[idx]) return '';
+      return row[idx].replace(/^"|"$/g,'').trim();
     }
 
-    var category = detectCategory(row, colMap);
+    var categoryRaw = val('category');
+    var brandRaw = val('brand');
+    var category = mapCategory(categoryRaw, brandRaw);
+
     var name = val('name');
     if (!name) { failCount++; continue; }
 
-    // Map category to our DB values
-    var catMap = {
-      'sports_card': 'sports_card',
-      'tcg_card': 'tcg_card',
-      'sealed_sports': 'sealed_sports',
-      'sealed_tcg': 'sealed_tcg'
-    };
+    // Parse combined grade string (e.g. "PSA 10.0 GEM - MT", "PSA 9", "BGS 9.5")
+    var gradeStr = val('grade_combined');
+    var gradeData = parseGrade(gradeStr);
 
-    // Determine player_character vs product_name based on category
+    // For Card Ladder, derive brand from set name (it has no brand column)
+    var brand = val('brand') || null;
+    if (!brand && colMap._format === 'cardladder') {
+      var setName = val('set') || '';
+      var m = setName.match(/^(Topps|Panini|Bowman|Upper Deck|Donruss|Fleer|Score|Finest|Prizm|Select|National Treasures)/i);
+      if (m) brand = m[1];
+    }
+
     var isSealed = category === 'sealed_sports' || category === 'sealed_tcg';
-    var isSports = category === 'sports_card';
 
     var body = {
       user_id: currentUser.id,
-      category: catMap[category] || 'tcg_card',
-      brand: val('brand') || null,
+      category: category,
+      brand: brand,
       set_name: val('set') || null,
-      year: val('year') || null,
+      year: val('year') ? val('year').trim() : null,
       card_number: val('card_number') || null,
       parallel: val('parallel') || null,
-      grade_company: val('grade_company') || null,
-      grade: val('grade') || null,
+      grade_company: gradeData.grader,
+      grade: gradeData.grade,
       quantity: parseInt(val('quantity')) || 1,
       purchase_price: parseFloat(val('purchase_price')) || 0,
       estimated_value: parseFloat(val('est_value')) || 0,
@@ -1119,10 +1168,13 @@ async function confirmImport() {
 
     if (isSealed) {
       body.product_name = name;
-    } else if (isSports) {
-      body.player_character = name;
     } else {
       body.player_character = name;
+      // Card Ladder has a full card title in a separate column
+      if (colMap._format === 'cardladder') {
+        var fullTitle = val('card_title');
+        if (fullTitle) body.card_title = fullTitle;
+      }
     }
 
     try {
@@ -1131,27 +1183,16 @@ async function confirmImport() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
-      if (res.ok) {
-        successCount++;
-      } else {
-        failCount++;
-      }
-    } catch(e) {
-      failCount++;
-    }
+      if (res.ok) { successCount++; } else { failCount++; }
+    } catch(e) { failCount++; }
   }
 
-  // Show done screen
   document.getElementById('import-step-preview').style.display = 'none';
   document.getElementById('import-done-success').textContent = successCount;
   document.getElementById('import-done-fail').textContent = failCount;
   document.getElementById('import-step-done').style.display = 'block';
 
-  // Reload collection
-  if (successCount > 0) {
-    await loadItems();
-    updateStats();
-  }
+  if (successCount > 0) { await loadItems(); updateStats(); }
 }
 
 window.openImportModal = openImportModal;
