@@ -1858,25 +1858,24 @@ app.get('/api/debug-prices', async (req, res) => {
 
   // Test 3: eBay Finding API — test raw URL to see exact error
   try {
-    const appId = process.env.EBAY_APP_ID;
-    const q = encodeURIComponent('Shohei Ohtani 2018 Topps PSA 10');
-    const url = 'https://svcs.ebay.com/services/search/FindingService/v1' +
-      '?OPERATION-NAME=findCompletedItems' +
-      '&SERVICE-VERSION=1.0.0' +
-      '&SECURITY-APPNAME=' + appId +
-      '&RESPONSE-DATA-FORMAT=JSON' +
-      '&keywords=' + q +
-      '&itemFilter(0).name=SoldItemsOnly' +
-      '&itemFilter(0).value=true' +
-      '&paginationInput.entriesPerPage=3' +
-      '&categoryId=212';
-    const r3 = await fetch(url);
-    const text = await r3.text();
-    results.ebay_finding = {
-      status: r3.status,
-      raw: text.substring(0, 500)
-    };
-  } catch(e) { results.ebay_finding = { error: e.message }; }
+    const creds = Buffer.from(`${process.env.EBAY_APP_ID}:${process.env.EBAY_CERT_ID}`).toString('base64');
+    const tr = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
+      method: 'POST',
+      headers: { 'Authorization': `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope'
+    });
+    const td = await tr.json();
+    if (td.access_token) {
+      const q = encodeURIComponent('Shohei Ohtani 2018 Topps PSA 10');
+      const url = `https://api.ebay.com/buy/browse/v1/item_summary/search?q=${q}&category_ids=212&limit=3&sort=price`;
+      const r3 = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${td.access_token}`, 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US' }
+      });
+      const d3 = await r3.json();
+      const items = d3.itemSummaries || [];
+      results.ebay_browse = { status: r3.status, count: items.length, sample: items[0] ? { title: items[0].title, price: items[0].price } : null };
+    }
+  } catch(e) { results.ebay_browse = { error: e.message }; }
 
   res.json(results);
 });
@@ -1887,92 +1886,67 @@ async function fetchTCGPrice(name, setName, game) {
   try {
     const gameId = (game || '').toLowerCase().includes('one piece') ? 'onepiece' : 'pokemon';
     const q = encodeURIComponent(name);
-    const setParam = setName ? '&set=' + encodeURIComponent(setName) : '';
-    const url = `https://api.justtcg.com/v1/cards?q=${q}${setParam}&game=${gameId}&limit=5`;
+    // Search by name only — convert set name to slug for matching client-side
+    const url = `https://api.justtcg.com/v1/cards?q=${q}&game=${gameId}&limit=10`;
     const res = await fetch(url, {
       headers: { 'x-api-key': process.env.JUSTTCG_API_KEY }
     });
     if (!res.ok) return null;
     const data = await res.json();
-    const cards = data.cards || data.data || data.results || [];
+    const cards = data.data || data.cards || data.results || [];
     if (!cards.length) return null;
-    const exact = cards.find(c => (c.name || '').toLowerCase() === name.toLowerCase());
-    const card = exact || cards[0];
-    // Variants array — pick the closest matching variant or highest price
+    // Try set slug match first, then exact name, then first result
+    let card = null;
+    if (setName) {
+      const setSlug = setName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      card = cards.find(c => (c.set || '').toLowerCase().includes(setSlug));
+    }
+    if (!card) card = cards.find(c => (c.name || '').toLowerCase() === name.toLowerCase()) || cards[0];
+    if (!card) return null;
+    // Median price across variants
     let price = null;
     if (card.variants && card.variants.length) {
-      // Sort by marketPrice descending, take the median
       const prices = card.variants
         .map(v => parseFloat(v.marketPrice || v.market_price || 0))
         .filter(p => p > 0)
         .sort((a, b) => a - b);
-      if (prices.length) price = prices[Math.floor(prices.length / 2)]; // median
+      if (prices.length) price = prices[Math.floor(prices.length / 2)];
     }
     if (!price) price = card.marketPrice || card.market_price ||
       (card.prices && (card.prices.market || card.prices.mid)) || null;
     return price ? parseFloat(price) : null;
-  } catch (e) {
-    return null;
-  }
-}
-
-// ─────────────────────────────────────────
-// PRICE UPDATES — eBay Finding API (sports cards)
-// ─────────────────────────────────────────
-
-async function fetchEbayToken() {
-  const creds = Buffer.from(`${process.env.EBAY_APP_ID}:${process.env.EBAY_CERT_ID}`).toString('base64');
-  const res = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Basic ${creds}`,
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: 'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope'
-  });
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.access_token || null;
+  } catch (e) { return null; }
 }
 
 async function fetchSportsPrice(playerName, setName, parallel, gradeCompany, grade) {
   try {
-    // Build search query: "Mike Trout 2011 Topps Update PSA 10"
+    // Get eBay OAuth token (Browse API — no rate limit issues)
+    const creds = Buffer.from(`${process.env.EBAY_APP_ID}:${process.env.EBAY_CERT_ID}`).toString('base64');
+    const tokenRes = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
+      method: 'POST',
+      headers: { 'Authorization': `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope'
+    });
+    if (!tokenRes.ok) return null;
+    const tokenData = await tokenRes.json();
+    const token = tokenData.access_token;
+    if (!token) return null;
+    // Build search query
     const parts = [playerName, setName, parallel, gradeCompany && grade ? `${gradeCompany} ${grade}` : null].filter(Boolean);
     const query = encodeURIComponent(parts.join(' '));
-
-    // eBay Finding API — findCompletedItems — sports cards category 212
-    const appId = process.env.EBAY_APP_ID;
-    const url = `https://svcs.ebay.com/services/search/FindingService/v1` +
-      `?OPERATION-NAME=findCompletedItems` +
-      `&SERVICE-VERSION=1.0.0` +
-      `&SECURITY-APPNAME=${appId}` +
-      `&RESPONSE-DATA-FORMAT=JSON` +
-      `&keywords=${query}` +
-      `&itemFilter%280%29.name=SoldItemsOnly&itemFilter%280%29.value=true` +
-      `&sortOrder=EndTimeSoonest` +
-      `&paginationInput.entriesPerPage=10` +
-      `&categoryId=212`;
-
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const data = await res.json();
-
-    const items = data?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item || [];
+    // eBay Browse API — trading cards category 212
+    const url = `https://api.ebay.com/buy/browse/v1/item_summary/search?q=${query}&category_ids=212&limit=10&sort=price`;
+    const browseRes = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US' }
+    });
+    if (!browseRes.ok) return null;
+    const browseData = await browseRes.json();
+    const items = browseData.itemSummaries || [];
     if (!items.length) return null;
-
-    const prices = items
-      .map(i => parseFloat(i?.sellingStatus?.[0]?.currentPrice?.[0]?.['__value__'] || 0))
-      .filter(p => p > 0);
+    const prices = items.map(i => parseFloat(i?.price?.value || 0)).filter(p => p > 0).sort((a, b) => a - b);
     if (!prices.length) return null;
-
-    // Use median not average to avoid outliers skewing the price
-    prices.sort((a, b) => a - b);
-    const median = prices[Math.floor(prices.length / 2)];
-    return parseFloat(median.toFixed(2));
-  } catch (e) {
-    return null;
-  }
+    return parseFloat(prices[Math.floor(prices.length / 2)].toFixed(2));
+  } catch (e) { return null; }
 }
 
 // ─────────────────────────────────────────
