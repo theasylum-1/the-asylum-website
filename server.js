@@ -1835,7 +1835,7 @@ app.get('/api/debug-prices', async (req, res) => {
   // Test JustTCG with a known card
   try {
     const r = await fetch('https://api.justtcg.com/v1/cards?q=Charizard&set=Obsidian+Flames&game=pokemon&limit=1', {
-      headers: { 'Authorization': `Bearer ${process.env.JUSTTCG_API_KEY}` }
+      headers: { 'x-api-key': process.env.JUSTTCG_API_KEY }
     });
     const data = await r.json();
     results.justtcg = { status: r.status, hasData: !!(data.cards || data.data), sample: JSON.stringify(data).substring(0, 300) };
@@ -1857,7 +1857,7 @@ app.get('/api/debug-prices', async (req, res) => {
     // If token works, test a search
     if (data.access_token) {
       const q = encodeURIComponent('Shohei Ohtani 2018 Topps PSA 10');
-      const url = `https://svcs.ebay.com/services/search/FindingService/v1?OPERATION-NAME=findCompletedItems&SERVICE-VERSION=1.0.0&SECURITY-APPNAME=${process.env.EBAY_APP_ID}&RESPONSE-DATA-FORMAT=JSON&REST-PAYLOAD&keywords=${q}&itemFilter(0).name=SoldItemsOnly&itemFilter(0).value=true&paginationInput.entriesPerPage=3&categoryId=213`;
+      const url = `https://svcs.ebay.com/services/search/FindingService/v1?OPERATION-NAME=findCompletedItems&SERVICE-VERSION=1.0.0&SECURITY-APPNAME=${process.env.EBAY_APP_ID}&RESPONSE-DATA-FORMAT=JSON&keywords=${q}&itemFilter%280%29.name=SoldItemsOnly&itemFilter%280%29.value=true&paginationInput.entriesPerPage=3&categoryId=212`;
       const sr = await fetch(url);
       const sd = await sr.json();
       const items = sd?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item || [];
@@ -1879,18 +1879,25 @@ async function fetchTCGPrice(name, setName, game) {
     const setParam = setName ? '&set=' + encodeURIComponent(setName) : '';
     const url = `https://api.justtcg.com/v1/cards?q=${q}${setParam}&game=${gameId}&limit=5`;
     const res = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${process.env.JUSTTCG_API_KEY}` }
+      headers: { 'x-api-key': process.env.JUSTTCG_API_KEY }
     });
     if (!res.ok) return null;
     const data = await res.json();
     const cards = data.cards || data.data || data.results || [];
     if (!cards.length) return null;
-    // Find best match — prefer exact name match
     const exact = cards.find(c => (c.name || '').toLowerCase() === name.toLowerCase());
     const card = exact || cards[0];
-    // Pull market price from variants or top-level
-    const price = card.marketPrice || card.market_price ||
-      (card.variants && card.variants[0] && card.variants[0].marketPrice) ||
+    // Variants array — pick the closest matching variant or highest price
+    let price = null;
+    if (card.variants && card.variants.length) {
+      // Sort by marketPrice descending, take the median
+      const prices = card.variants
+        .map(v => parseFloat(v.marketPrice || v.market_price || 0))
+        .filter(p => p > 0)
+        .sort((a, b) => a - b);
+      if (prices.length) price = prices[Math.floor(prices.length / 2)]; // median
+    }
+    if (!price) price = card.marketPrice || card.market_price ||
       (card.prices && (card.prices.market || card.prices.mid)) || null;
     return price ? parseFloat(price) : null;
   } catch (e) {
@@ -1919,29 +1926,39 @@ async function fetchEbayToken() {
 
 async function fetchSportsPrice(playerName, setName, parallel, gradeCompany, grade) {
   try {
-    const token = await fetchEbayToken();
-    if (!token) return null;
-
     // Build search query: "Mike Trout 2011 Topps Update PSA 10"
     const parts = [playerName, setName, parallel, gradeCompany && grade ? `${gradeCompany} ${grade}` : null].filter(Boolean);
     const query = encodeURIComponent(parts.join(' '));
 
-    // eBay Finding API — findCompletedItems = sold listings
-    const url = `https://svcs.ebay.com/services/search/FindingService/v1?OPERATION-NAME=findCompletedItems&SERVICE-VERSION=1.0.0&SECURITY-APPNAME=${process.env.EBAY_APP_ID}&RESPONSE-DATA-FORMAT=JSON&REST-PAYLOAD&keywords=${query}&itemFilter(0).name=SoldItemsOnly&itemFilter(0).value=true&sortOrder=EndTimeSoonest&paginationInput.entriesPerPage=10&categoryId=213`;
+    // eBay Finding API — findCompletedItems — sports cards category 212
+    const appId = process.env.EBAY_APP_ID;
+    const url = `https://svcs.ebay.com/services/search/FindingService/v1` +
+      `?OPERATION-NAME=findCompletedItems` +
+      `&SERVICE-VERSION=1.0.0` +
+      `&SECURITY-APPNAME=${appId}` +
+      `&RESPONSE-DATA-FORMAT=JSON` +
+      `&keywords=${query}` +
+      `&itemFilter%280%29.name=SoldItemsOnly&itemFilter%280%29.value=true` +
+      `&sortOrder=EndTimeSoonest` +
+      `&paginationInput.entriesPerPage=10` +
+      `&categoryId=212`;
 
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = await res.json();
 
-    const items = (data?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item) || [];
+    const items = data?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item || [];
     if (!items.length) return null;
 
-    // Average the top sold prices
     const prices = items
       .map(i => parseFloat(i?.sellingStatus?.[0]?.currentPrice?.[0]?.['__value__'] || 0))
       .filter(p => p > 0);
     if (!prices.length) return null;
-    return parseFloat((prices.reduce((a, b) => a + b, 0) / prices.length).toFixed(2));
+
+    // Use median not average to avoid outliers skewing the price
+    prices.sort((a, b) => a - b);
+    const median = prices[Math.floor(prices.length / 2)];
+    return parseFloat(median.toFixed(2));
   } catch (e) {
     return null;
   }
