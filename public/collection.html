@@ -652,7 +652,7 @@ function renderTable(items) {
     } else { html += '<td style="color:var(--muted);">—</td>'; }
     html += '<td><div class="action-btns">';
     html += '<button class="btn-sm" onclick="openEditModal(\'' + safeId + '\')">Edit</button>';
-    html += '<button class="btn-sm" onclick="refreshItemPrice(\'' + safeId + '\')" title="Refresh market price">↻</button>';
+    html += '<button class="btn-sm" onclick="refreshItemPrice(\'' + safeId + '\', this)" title="Refresh market price">↻</button>';
     html += '<button class="btn-sm sold-btn" onclick="openSellModal(\'' + safeId + '\',\'' + safeName + '\')">Sold</button>';
     html += '<button class="btn-sm danger" onclick="deleteItem(\'' + safeId + '\')">✕</button>';
     html += '</div></td></tr>';
@@ -1218,8 +1218,10 @@ window.confirmImport = confirmImport;
 // ─────────────────────────────────────────
 // PRICE REFRESH — single item
 // ─────────────────────────────────────────
-async function refreshItemPrice(id) {
-  var btn = event.target;
+async function refreshItemPrice(id, btn) {
+  if (!btn) btn = event && event.target;
+  if (!btn) return;
+  var origText = btn.textContent;
   btn.textContent = '...';
   btn.disabled = true;
   try {
@@ -1227,7 +1229,6 @@ async function refreshItemPrice(id) {
     var data = await res.json();
     if (data.success) {
       showToast('Price updated: $' + parseFloat(data.price).toFixed(2), 'success');
-      // Update in local array and re-render
       var idx = allItems.findIndex(function(i){ return i.id === id; });
       if (idx !== -1) {
         allItems[idx].estimated_value = data.price;
@@ -1241,7 +1242,7 @@ async function refreshItemPrice(id) {
   } catch(e) {
     showToast('Price refresh failed', 'error');
   }
-  btn.textContent = '↻';
+  btn.textContent = origText;
   btn.disabled = false;
 }
 
