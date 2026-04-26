@@ -988,6 +988,34 @@ function renderBreaks() {
     info.appendChild(h3);
     info.appendChild(p);
 
+    if (b.description && b.description.trim()) {
+      var descWrap = document.createElement('div');
+      descWrap.style.cssText = 'margin-top:10px;padding-top:10px;border-top:1px solid var(--border);';
+      var raw = b.description.trim();
+      var lines = raw.split(/\r?\n/).map(function(l){return l.replace(/^\s*[-*•]\s*/, '').trim();}).filter(function(l){return l.length;});
+      if (lines.length > 1) {
+        var ul = document.createElement('ul');
+        ul.style.cssText = 'list-style:none;padding:0;margin:0;font-size:12.5px;color:var(--muted);line-height:1.55;';
+        lines.forEach(function(line) {
+          var li = document.createElement('li');
+          li.style.cssText = 'padding-left:14px;position:relative;margin-bottom:3px;';
+          var dot = document.createElement('span');
+          dot.textContent = '+';
+          dot.style.cssText = 'position:absolute;left:0;top:0;color:var(--red);font-weight:700;';
+          li.appendChild(dot);
+          li.appendChild(document.createTextNode(line));
+          ul.appendChild(li);
+        });
+        descWrap.appendChild(ul);
+      } else {
+        var descP = document.createElement('p');
+        descP.style.cssText = 'font-size:12.5px;color:var(--muted);line-height:1.55;margin:0;';
+        descP.textContent = raw;
+        descWrap.appendChild(descP);
+      }
+      info.appendChild(descWrap);
+    }
+
     var priceDiv = document.createElement('div');
     priceDiv.style.textAlign = 'right';
     var priceEl = document.createElement('div');
@@ -2199,10 +2227,10 @@ async function loadBreaks() {
     const abData = await abRes.json();
 
     liveBreaks.hsa = hsaData.map(function (b) {
-      return { name: b.name, date: b.break_date, price: '$' + b.price, spots: b.total_spots, filled: b.filled_spots, id: b.id, break_type: b.break_type || 'standard', sport: b.sport || '' };
+      return { name: b.name, date: b.break_date, price: '$' + b.price, spots: b.total_spots, filled: b.filled_spots, id: b.id, break_type: b.break_type || 'standard', sport: b.sport || '', description: b.description || '' };
     });
     liveBreaks.ab = abData.map(function (b) {
-      return { name: b.name, date: b.break_date, price: '$' + b.price, spots: b.total_spots, filled: b.filled_spots, id: b.id, break_type: b.break_type || 'standard', sport: b.sport || '' };
+      return { name: b.name, date: b.break_date, price: '$' + b.price, spots: b.total_spots, filled: b.filled_spots, id: b.id, break_type: b.break_type || 'standard', sport: b.sport || '', description: b.description || '' };
     });
 
     // Update the global breaks object with live data

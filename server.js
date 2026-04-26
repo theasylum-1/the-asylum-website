@@ -291,6 +291,7 @@ app.post('/api/breaks/admin/update', async (req, res) => {
     if (is_active !== undefined) updates.is_active = is_active;
     if (req.body.break_type !== undefined) updates.break_type = req.body.break_type;
     if (req.body.sport !== undefined) updates.sport = req.body.sport;
+    if (req.body.description !== undefined) updates.description = req.body.description;
     const { data, error } = await getSupabase().from('breaks').update(updates).eq('id', id).select().single();
     if (error) return res.status(500).json({ error: error.message });
     res.json({ success: true, break: data });
@@ -629,9 +630,10 @@ app.post('/api/breaks', async (req, res) => {
   try {
     const breakType = req.body.break_type || 'energy';
     const sport = req.body.sport || null;
+    const description = req.body.description || null;
     const { data, error } = await getSupabase().from('breaks').insert({
       brand, name, break_date, price, total_spots, filled_spots: 0, is_active: true,
-      break_type: breakType, sport: sport
+      break_type: breakType, sport: sport, description: description
     }).select().single();
     if (error) return res.status(500).json({ error: error.message });
     res.json({ success: true, break: data });
