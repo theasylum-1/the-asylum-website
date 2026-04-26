@@ -680,20 +680,42 @@ app.post('/api/stripe/create-payment-intent', async (req, res) => {
   if (!amount || amount < 1) {
     return res.status(400).json({ error: 'Invalid amount.' });
   }
+  if (!process.env.STRIPE_SECRET_KEY) {
+    console.error('[STRIPE] STRIPE_SECRET_KEY env var is missing.');
+    return res.status(500).json({ error: 'Payment system not configured (missing secret key).' });
+  }
+  if (!process.env.STRIPE_PUBLISHABLE_KEY) {
+    console.error('[STRIPE] STRIPE_PUBLISHABLE_KEY env var is missing.');
+    return res.status(500).json({ error: 'Payment system not configured (missing publishable key).' });
+  }
   try {
     const { customer_email, customer_name } = req.body;
     const paymentIntent = await getStripe().paymentIntents.create({
       amount: Math.round(amount * 100),
       currency: 'usd',
       receipt_email: customer_email || null,
-      metadata: { item_name, item_id, order_type, customer_email: customer_email || '', customer_name: customer_name || '' }
+      metadata: {
+        item_name: item_name || '',
+        item_id: item_id || '',
+        order_type: order_type || '',
+        customer_email: customer_email || '',
+        customer_name: customer_name || ''
+      }
     });
     res.json({
       clientSecret: paymentIntent.client_secret,
       publishableKey: process.env.STRIPE_PUBLISHABLE_KEY
     });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to create payment. Please try again.' });
+    console.error('[STRIPE] paymentIntents.create failed:', {
+      message: err.message,
+      type: err.type,
+      code: err.code,
+      param: err.param,
+      statusCode: err.statusCode,
+      requestId: err.requestId
+    });
+    res.status(500).json({ error: err.message || 'Failed to create payment. Please try again.' });
   }
 });
 
